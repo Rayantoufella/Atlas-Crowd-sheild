@@ -1,0 +1,9 @@
+[
+  {"second": 0,  "global_risk": 28, "gate_3_risk": 20, "alert_active": false},
+  {"second": 15, "global_risk": 38, "gate_3_risk": 35, "alert_active": false},
+  {"second": 30, "global_risk": 52, "gate_3_risk": 58, "alert_active": false},
+  {"second": 45, "global_risk": 67, "gate_3_risk": 82, "alert_active": true},
+  {"second": 60, "global_risk": 71, "gate_3_risk": 82, "alert_active": true},
+  {"second": 75, "global_risk": 65, "gate_3_risk": 70, "alert_active": true},
+  {"second": 90, "global_risk": 45, "gate_3_risk": 45, "alert_active": false}
+]
