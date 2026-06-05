@@ -1,5 +1,5 @@
 // Admin · Agents — table of agents + add/edit modal + delete.
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Icon } from '../../lib/icons.jsx';
 import { Button } from '../../components/Button.jsx';
 import { Badge } from '../../components/Badge.jsx';
@@ -11,6 +11,7 @@ import {
 import {
   SEED_AGENTS, SECTORS, AGENT_STATUSES, GATES,
 } from '../../lib/data.js';
+import { fetchAgents } from '../../lib/api.js';
 
 const STATUS_VARIANT = {
   DEPLOYED: 'ok',
@@ -31,6 +32,10 @@ export default function Agents() {
   const [err, setErr] = useState({});
   const [del, setDel] = useState(null);
   const { toast, show, hide } = useToast();
+
+  useEffect(() => {
+    fetchAgents().then(setAgents).catch(() => {});
+  }, []);
 
   const validate = (a) => {
     const e = {};

@@ -1,5 +1,5 @@
 // Admin · Portes — 6 gate cards with 3-state cycle + edit modal.
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Icon } from '../../lib/icons.jsx';
 import { Button } from '../../components/Button.jsx';
 import { Badge } from '../../components/Badge.jsx';
@@ -9,6 +9,7 @@ import {
   TextField, NumberField, SelectField, TextArea, FormGrid,
 } from '../../components/FormField.jsx';
 import { SEED_GATES, GATE_STATES, SECTORS, SEED_CAMERAS } from '../../lib/data.js';
+import { fetchLiveState, gateStateFromRiskScore } from '../../lib/api.js';
 
 const STATE_STYLE = {
   'OUVERT':    { variant: 'ok',   color: 'var(--green-2)',  bg: 'color-mix(in oklab, var(--green) 20%, transparent)',  border: 'color-mix(in oklab, var(--green) 50%, var(--border-strong))' },
@@ -21,6 +22,18 @@ export default function Portes() {
   const [edit, setEdit] = useState(null);
   const [editInit, setEditInit] = useState(null);
   const { toast, show, hide } = useToast();
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      fetchLiveState().then((state) => {
+        setGates((prev) => prev.map((g, i) => {
+          const zoneRisk = state.zones[i]?.risk ?? 0;
+          return { ...g, state: gateStateFromRiskScore(zoneRisk) };
+        }));
+      }).catch(() => {});
+    }, 3000);
+    return () => clearInterval(id);
+  }, []);
 
   const cycle = (i) => {
     setGates((arr) => arr.map((g, j) => {

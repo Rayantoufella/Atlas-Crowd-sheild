@@ -1,6 +1,6 @@
 // Admin · Matchs — table of matches + 3-step creation wizard +
 // edit, delete, QR, and view-detail modals.
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Icon } from '../../lib/icons.jsx';
 import { Button } from '../../components/Button.jsx';
 import { Badge } from '../../components/Badge.jsx';
@@ -9,6 +9,7 @@ import Toast, { useToast } from '../../components/Toast.jsx';
 import { TextField, NumberField, SelectField, TextArea, Toggle, Slider, FormGrid } from '../../components/FormField.jsx';
 import { FLAGS, FLAG_LIST } from '../../lib/flags.js';
 import { STADIUMS, COMPETITIONS, SEED_MATCHES, stadiumById, fmtTeam } from '../../lib/data.js';
+import { fetchMatches, createMatch } from '../../lib/api.js';
 
 const MATCH_STATUSES = [
   { value: 'LIVE',     label: 'LIVE' },
@@ -27,13 +28,27 @@ export default function Matchs() {
   const [view, setView] = useState(null);
   const { toast, show, hide } = useToast();
 
+  useEffect(() => {
+    fetchMatches().then(setMatches).catch(() => {});
+  }, []);
+
   const onCreate = (m) => {
     if (wizardInitial?.id) {
       setMatches((arr) => arr.map((x) => x.id === m.id ? m : x));
       show('Match modifié avec succès');
     } else {
-      setMatches((arr) => [{ ...m, id: `m-${String(arr.length + 1).padStart(3, '0')}` }, ...arr]);
-      show('Match créé avec succès');
+      createMatch({
+        team_a: m.teamA === 'MA' ? 'Maroc' : m.teamA,
+        team_b: m.teamB === 'SN' ? 'Sénégal' : m.teamB,
+        stadium: stadiumById(m.stadiumId)?.name || m.stadiumId,
+        match_date: m.datetime,
+        capacity: m.capAuth,
+      }).then(() => {
+        fetchMatches().then(setMatches);
+        show('Match créé avec succès');
+      }).catch(() => {
+        show('Erreur lors de la création');
+      });
     }
     setWizardOpen(false);
     setWizardInitial(null);

@@ -1,5 +1,5 @@
 // Admin · Caméras — 8 camera cards grid + add/edit + flux modal + delete.
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Icon } from '../../lib/icons.jsx';
 import { Button } from '../../components/Button.jsx';
 import { Badge } from '../../components/Badge.jsx';
@@ -9,6 +9,7 @@ import {
   TextField, NumberField, SelectField, Toggle, FormGrid,
 } from '../../components/FormField.jsx';
 import { SECTORS, SEED_CAMERAS, CAMERA_RESOLUTIONS, CAMERA_FPS } from '../../lib/data.js';
+import { fetchCameras } from '../../lib/api.js';
 
 const emptyCam = () => ({
   id: '', zone: 'Nord', loc: '',
@@ -23,6 +24,10 @@ export default function Cameras() {
   const [flux, setFlux] = useState(null);
   const [del, setDel] = useState(null);
   const { toast, show, hide } = useToast();
+
+  useEffect(() => {
+    fetchCameras().then(setCams).catch(() => {});
+  }, []);
 
   const toggleStatus = (id) => {
     setCams((arr) => arr.map((c) =>

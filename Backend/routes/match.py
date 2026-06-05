@@ -30,3 +30,17 @@ def create_match():
         "qr_url": f"/api/match/{match.id}/qr",
         "status": "created",
     }), 201
+
+
+@match_bp.route("/api/match/list")
+def list_matches():
+    matches = Match.query.order_by(Match.match_date.desc()).all()
+    return jsonify([{
+        "id": m.id,
+        "team_a": m.team_a,
+        "team_b": m.team_b,
+        "stadium": m.stadium,
+        "match_date": m.match_date.isoformat(),
+        "capacity": m.capacity,
+        "status": "UPCOMING" if m.match_date > datetime.utcnow() else "FINISHED",
+    } for m in matches])

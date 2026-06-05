@@ -11,6 +11,7 @@ import ZoneCard from '../components/ZoneCard.jsx';
 import EventLog from '../components/EventLog.jsx';
 import StatsBar from '../components/StatsBar.jsx';
 import { GATES, SEED_EVENTS, deriveZoneRisks, statusFromRisk } from '../lib/data.js';
+import { fetchLiveState, fetchEvents, broadcastAlert } from '../lib/api.js';
 
 const COUNTDOWN_TOTAL = 420;
 
@@ -26,39 +27,52 @@ function useCountdown(active) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-// Risk oscillates slightly over time for live feel
-function useOscillatingRisk(initial = 67) {
-  const [r, setR] = useState(initial);
+export default function Ops() {
+  const [liveState, setLiveState] = useState(null);
+  const [events, setEvents] = useState(SEED_EVENTS);
+
+  useEffect(() => {
+    fetchLiveState().then(setLiveState).catch(() => {});
+    const id = setInterval(() => {
+      fetchLiveState().then(setLiveState).catch(() => {});
+    }, 2000);
+    return () => clearInterval(id);
+  }, []);
+
   useEffect(() => {
     const id = setInterval(() => {
-      setR((prev) => {
-        let next = prev + (Math.random() - 0.5) * 4;
-        next = Math.max(20, Math.min(95, next));
-        return Math.round(next);
-      });
+      fetchEvents().then(setEvents).catch(() => {});
     }, 5000);
     return () => clearInterval(id);
   }, []);
-  return r;
-}
 
-export default function Ops() {
-  const [alertOn, setAlertOn] = useState(true);
-  const risk = useOscillatingRisk(67);
+  const alertOn = liveState?.alert?.active ?? true;
+  const risk = liveState?.global_risk ?? 67;
   const countdown = useCountdown(alertOn);
-  const zoneRisks = deriveZoneRisks(risk);
+  const zoneRisks = liveState?.zoneRisks ?? deriveZoneRisks(risk);
   const activeAlertIdx = alertOn ? 2 : null;
 
+  const s = liveState?.stats;
   const stats = [
-    { label: 'TOTAL SUPPORTERS', fr: 'Spectateurs',     value: '67,842', delta: '▲ 2.1k', deltaColor: 'var(--green)',
-      note: '78% of 87,000 capacity', icon: <Icon.Users size={14} /> },
-    { label: 'AGENTS DEPLOYED',  fr: 'Agents déployés', value: '184',    delta: '+12 to G3', deltaColor: 'var(--orange)',
+    { label: 'TOTAL SUPPORTERS', fr: 'Spectateurs',     value: s ? s.supporters_inside?.toLocaleString() : '67,842', delta: '▲ 2.1k', deltaColor: 'var(--green)',
+      note: `${s ? Math.round((s.supporters_inside / 87000) * 100) : 78}% of 87,000 capacity`, icon: <Icon.Users size={14} /> },
+    { label: 'AGENTS DEPLOYED',  fr: 'Agents déployés', value: s ? String(s.agents_deployed) : '184',    delta: '+12 to G3', deltaColor: 'var(--orange)',
       note: '12 crews · 4 mobile units', icon: <Icon.Shield size={14} /> },
-    { label: 'INCIDENTS PREVENTED', fr: 'Incidents évités', value: '23', delta: 'today',
+    { label: 'INCIDENTS PREVENTED', fr: 'Incidents évités', value: s ? String(s.incidents_prevented) : '23', delta: 'today',
       note: '6 critical · 17 elevated', icon: <Icon.ShieldCheck size={14} /> },
-    { label: 'CAMERAS ONLINE',   fr: 'Caméras actives', value: '412/418', delta: '98.6%',
-      note: '6 offline · auto-failover ok', icon: <Icon.Camera size={14} /> },
+    { label: 'CAMERAS ONLINE',   fr: 'Caméras actives', value: s ? `${s.cameras_active}/${s.cameras_total}` : '412/418', delta: s ? `${Math.round((s.cameras_active / s.cameras_total) * 100)}%` : '98.6%',
+      note: `${s ? s.cameras_total - s.cameras_active : 6} offline · auto-failover ok`, icon: <Icon.Camera size={14} /> },
   ];
+
+  const onAlertToggle = async () => {
+    if (alertOn) {
+      await broadcastAlert({ zone_id: 'gate_5', message: 'All clear — alert dismissed' });
+      fetchLiveState().then(setLiveState);
+    } else {
+      await broadcastAlert({ zone_id: 'gate_3', message: 'Compression détectée — Rediriger vers Porte 5' });
+      fetchLiveState().then(setLiveState);
+    }
+  };
 
   return (
     <main style={{
@@ -89,7 +103,7 @@ export default function Ops() {
               <span style={{ color: 'var(--fg-3)' }}>OPS LEAD</span> &nbsp; M. Rousseau
             </div>
           </div>
-          <Button onClick={() => setAlertOn((x) => !x)}>
+          <Button onClick={onAlertToggle}>
             <Icon.Radio size={14} /> {alertOn ? 'Dismiss alert' : 'Trigger alert (demo)'}
           </Button>
         </div>
@@ -120,7 +134,7 @@ export default function Ops() {
             />
           ))}
         </div>
-        <EventLog initial={SEED_EVENTS} />
+        <EventLog initial={events} />
       </div>
 
       {/* STATS BAR */}
