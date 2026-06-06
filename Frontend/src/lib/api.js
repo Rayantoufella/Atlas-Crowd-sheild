@@ -122,6 +122,20 @@ export async function fetchReport(matchId) {
   return get(`/api/report/${matchId}`);
 }
 
+export async function fetchSettings() {
+  return get('/api/settings');
+}
+
+export async function saveSettings(data) {
+  const res = await fetch(`${API_BASE}/api/settings`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`PUT /api/settings failed: ${res.status}`);
+  return res.json();
+}
+
 export function gateStateFromRiskScore(risk) {
   return gateStateFromRisk(risk);
 }
