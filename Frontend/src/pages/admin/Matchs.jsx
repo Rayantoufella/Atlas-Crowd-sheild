@@ -9,7 +9,7 @@ import Toast, { useToast } from '../../components/Toast.jsx';
 import { TextField, NumberField, SelectField, TextArea, Toggle, Slider, FormGrid } from '../../components/FormField.jsx';
 import { FLAGS, FLAG_LIST } from '../../lib/flags.js';
 import { STADIUMS, COMPETITIONS, SEED_MATCHES, stadiumById, fmtTeam } from '../../lib/data.js';
-import { fetchMatches, createMatch } from '../../lib/api.js';
+import { fetchMatches, createMatch, updateMatch, deleteMatch } from '../../lib/api.js';
 
 const MATCH_STATUSES = [
   { value: 'LIVE',     label: 'LIVE' },
@@ -32,31 +32,42 @@ export default function Matchs() {
     fetchMatches().then(setMatches).catch(() => {});
   }, []);
 
+  const refreshMatches = () => fetchMatches().then(setMatches).catch(() => {});
+
   const onCreate = (m) => {
     if (wizardInitial?.id) {
-      setMatches((arr) => arr.map((x) => x.id === m.id ? m : x));
-      show('Match modifié avec succès');
-    } else {
-      createMatch({
-        team_a: m.teamA === 'MA' ? 'Maroc' : m.teamA,
-        team_b: m.teamB === 'SN' ? 'Sénégal' : m.teamB,
-        stadium: stadiumById(m.stadiumId)?.name || m.stadiumId,
+      updateMatch(wizardInitial.backendId || wizardInitial.id, {
+        team_a: m.teamA,
+        team_b: m.teamB,
+        stadium: m.stadium,
         match_date: m.datetime,
         capacity: m.capAuth,
       }).then(() => {
-        fetchMatches().then(setMatches);
+        refreshMatches();
+        show('Match modifié avec succès');
+      }).catch(() => show('Erreur lors de la modification'));
+    } else {
+      createMatch({
+        team_a: m.teamA,
+        team_b: m.teamB,
+        stadium: m.stadium,
+        match_date: m.datetime,
+        capacity: m.capAuth,
+      }).then(() => {
+        refreshMatches();
         show('Match créé avec succès');
-      }).catch(() => {
-        show('Erreur lors de la création');
-      });
+      }).catch(() => show('Erreur lors de la création'));
     }
     setWizardOpen(false);
     setWizardInitial(null);
   };
 
   const onDelete = () => {
-    setMatches((arr) => arr.filter((x) => x.id !== del.id));
-    show(`Match « ${fmtTeam(del.teamA)} vs ${fmtTeam(del.teamB)} » supprimé`);
+    const bid = del.backendId || del.id;
+    deleteMatch(bid).then(() => {
+      refreshMatches();
+      show(`Match supprimé`);
+    }).catch(() => show('Erreur lors de la suppression'));
     setDel(null);
   };
 
@@ -112,11 +123,11 @@ export default function Matchs() {
                       <div>{stadium?.name}</div>
                       <div style={{ fontSize: 11, color: 'var(--fg-3)' }}>{stadium?.city}</div>
                     </td>
-                    <td style={{ padding: '14px', fontFamily: 'var(--font-mono)' }}>{stadium?.capacity.toLocaleString()}</td>
-                    <td style={{ padding: '14px', fontFamily: 'var(--font-mono)' }}>{m.capAuth.toLocaleString()}</td>
-                    <td style={{ padding: '14px', fontFamily: 'var(--font-mono)' }}>{m.camerasActive}/{stadium?.cameras}</td>
-                    <td style={{ padding: '14px', fontFamily: 'var(--font-mono)' }}>{m.gatesActive}/{stadium?.gates}</td>
-                    <td style={{ padding: '14px', fontFamily: 'var(--font-mono)' }}>{m.agents.toLocaleString()}</td>
+                    <td style={{ padding: '14px', fontFamily: 'var(--font-mono)' }}>{(stadium?.capacity || 0).toLocaleString()}</td>
+                    <td style={{ padding: '14px', fontFamily: 'var(--font-mono)' }}>{(m.capAuth || 0).toLocaleString()}</td>
+                    <td style={{ padding: '14px', fontFamily: 'var(--font-mono)' }}>{(m.camerasActive || 0)}/{stadium?.cameras || '—'}</td>
+                    <td style={{ padding: '14px', fontFamily: 'var(--font-mono)' }}>{(m.gatesActive || 0)}/{stadium?.gates || '—'}</td>
+                    <td style={{ padding: '14px', fontFamily: 'var(--font-mono)' }}>{(m.agents || 0).toLocaleString()}</td>
                     <td style={{ padding: '14px' }}>
                       <Badge variant={STATUS_VARIANT[m.status]} dot pulse={m.status === 'LIVE'}>{m.status}</Badge>
                     </td>
@@ -688,11 +699,11 @@ function ViewBlock({ match }) {
     ['Compétition', match.competition],
     ['Date', new Date(match.datetime).toLocaleString('fr-FR')],
     ['Stade', `${s?.name} — ${s?.city}`],
-    ['Capacité totale', s?.capacity.toLocaleString()],
-    ['Capacité autorisée', match.capAuth?.toLocaleString()],
-    ['Caméras actives', `${match.camerasActive} / ${s?.cameras}`],
-    ['Portes actives', `${match.gatesActive} / ${s?.gates}`],
-    ['Agents déployés', match.agents?.toLocaleString()],
+    ['Capacité totale', (s?.capacity || 0).toLocaleString()],
+    ['Capacité autorisée', (match.capAuth || 0).toLocaleString()],
+    ['Caméras actives', `${match.camerasActive || 0} / ${s?.cameras || '—'}`],
+    ['Portes actives', `${match.gatesActive || 0} / ${s?.gates || '—'}`],
+    ['Agents déployés', (match.agents || 0).toLocaleString()],
     ['Statut', match.status],
   ];
   return (

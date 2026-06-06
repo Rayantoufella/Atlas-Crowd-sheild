@@ -8,8 +8,8 @@ import Toast, { useToast } from '../../components/Toast.jsx';
 import {
   TextField, NumberField, SelectField, TextArea, FormGrid,
 } from '../../components/FormField.jsx';
-import { SEED_GATES, GATE_STATES, SECTORS, SEED_CAMERAS } from '../../lib/data.js';
-import { fetchLiveState, gateStateFromRiskScore } from '../../lib/api.js';
+import { GATE_STATES, SECTORS } from '../../lib/data.js';
+import { fetchLiveState, fetchCameras, updateZone, gateStateFromRiskScore } from '../../lib/api.js';
 
 const STATE_STYLE = {
   'OUVERT':    { variant: 'ok',   color: 'var(--green-2)',  bg: 'color-mix(in oklab, var(--green) 20%, transparent)',  border: 'color-mix(in oklab, var(--green) 50%, var(--border-strong))' },
@@ -17,36 +17,58 @@ const STATE_STYLE = {
   'FERMÉ':     { variant: 'crit', color: 'var(--red-2)',    bg: 'color-mix(in oklab, var(--red) 22%, transparent)',    border: 'color-mix(in oklab, var(--red) 50%, var(--border-strong))' },
 };
 
+function defaultGates() {
+  const names = ['Porte 1 Nord', 'Porte 2 Nord-Est', 'Porte 3 Est', 'Porte 4 Sud-Est', 'Porte 5 Sud', 'Porte 6 Ouest'];
+  const locs = ['Entree Nord', 'Entree Nord-Est', 'Entree Est', 'Entree Sud-Est', 'Entree Sud', 'Entree Ouest'];
+  const sectors = ['Nord', 'Nord-Est', 'Est', 'Sud-Est', 'Sud', 'Ouest'];
+  return names.map((n, i) => ({
+    code: `G${i + 1}`, name: n, loc: locs[i], sector: sectors[i],
+    state: 'OUVERT', agents: 300, maxFlow: 4200,
+    density: 20, cameras: [], notes: '',
+  }));
+}
+
 export default function Portes() {
-  const [gates, setGates] = useState(SEED_GATES);
+  const [gates, setGates] = useState(defaultGates);
   const [edit, setEdit] = useState(null);
   const [editInit, setEditInit] = useState(null);
+  const [camList, setCamList] = useState([]);
   const { toast, show, hide } = useToast();
 
-  useEffect(() => {
-    const id = setInterval(() => {
-      fetchLiveState().then((state) => {
-        setGates((prev) => prev.map((g, i) => {
-          const zoneRisk = state.zones[i]?.risk ?? 0;
-          return { ...g, state: gateStateFromRiskScore(zoneRisk) };
-        }));
-      }).catch(() => {});
-    }, 3000);
-    return () => clearInterval(id);
-  }, []);
+  const refresh = () => {
+    fetchLiveState().then((state) => {
+      setGates((prev) => prev.map((g, i) => {
+        const z = state.zones[i];
+        if (!z) return g;
+        const densityVal = typeof z.density === 'number' ? z.density
+          : z.density === 'high' ? 85 : z.density === 'medium' ? 60 : 20;
+        return {
+          ...g,
+          state: gateStateFromRiskScore(z.risk ?? 0),
+          density: densityVal,
+        };
+      }));
+    }).catch(() => {});
+    fetchCameras().then(setCamList).catch(() => {});
+  };
+
+  useEffect(() => { refresh(); const id = setInterval(refresh, 3000); return () => clearInterval(id); }, []);
 
   const cycle = (i) => {
-    setGates((arr) => arr.map((g, j) => {
-      if (j !== i) return g;
-      const idx = GATE_STATES.indexOf(g.state);
-      const next = GATE_STATES[(idx + 1) % GATE_STATES.length];
-      return { ...g, state: next };
-    }));
+    const g = gates[i];
+    const idx = GATE_STATES.indexOf(g.state);
+    const nextState = GATE_STATES[(idx + 1) % GATE_STATES.length];
+    updateZone(`gate_${i + 1}`, { status: nextState === 'OUVERT' ? 'safe' : nextState === 'RESTREINT' ? 'warning' : 'critical' })
+      .then(refresh).catch(() => {});
   };
 
   const save = (g) => {
-    setGates((arr) => arr.map((x) => x.code === editInit.code ? g : x));
-    show(`Porte ${g.code} mise à jour`);
+    updateZone(`gate_${editInit.code.slice(1)}`, {
+      label: g.name, ...g,
+    }).then(() => {
+      show(`Porte ${g.code} mise a jour`);
+      refresh();
+    }).catch(() => show('Erreur lors de la mise a jour'));
     setEdit(null); setEditInit(null);
   };
 
@@ -106,7 +128,7 @@ export default function Portes() {
                 marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)',
               }}>
                 <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-                  <DensityBadge value={[42, 58, 91, 63, 36, 29][i] || 40} />
+                  <DensityBadge value={g.density} />
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--fg-2)' }}>
                     <Icon.Users size={14} /> <span className="num">{g.agents}</span> agents
                   </div>
@@ -134,7 +156,7 @@ export default function Portes() {
           </Button>
         </>}
       >
-        {edit && <GateForm gate={edit} setGate={setEdit} />}
+        {edit && <GateForm gate={edit} setGate={setEdit} camList={camList} />}
       </Modal>
 
       <Toast message={toast} onClose={hide} />
@@ -147,7 +169,7 @@ function DensityBadge({ value }) {
   return <Badge variant={v}>DENS {value}%</Badge>;
 }
 
-function GateForm({ gate, setGate }) {
+function GateForm({ gate, setGate, camList }) {
   const toggleCam = (id) => {
     const has = gate.cameras.includes(id);
     setGate({
@@ -171,7 +193,7 @@ function GateForm({ gate, setGate }) {
       <div>
         <div className="eyebrow" style={{ marginBottom: 8 }}>CAMÉRAS ASSOCIÉES</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-          {SEED_CAMERAS.map((c) => {
+          {(camList.length ? camList : []).map((c) => {
             const checked = gate.cameras.includes(c.id);
             return (
               <button key={c.id} type="button" onClick={() => toggleCam(c.id)}

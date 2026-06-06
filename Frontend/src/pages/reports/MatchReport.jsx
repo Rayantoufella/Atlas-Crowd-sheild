@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from '../../lib/icons.jsx';
+import { exportMatchPDF } from '../../lib/api.js';
 
 export default function MatchReport() {
   const [matches, setMatches] = useState([]);
@@ -67,6 +68,18 @@ export default function MatchReport() {
             </option>
           ))}
         </select>
+        <button onClick={() => selectedId && exportMatchPDF(selectedId)}
+          disabled={!selectedId}
+          style={{
+            padding: '9px 16px', borderRadius: 8, border: '1px solid var(--border-strong)',
+            background: selectedId ? 'var(--bg-2)' : 'var(--bg-1)',
+            color: selectedId ? 'var(--fg-0)' : 'var(--fg-3)',
+            cursor: selectedId ? 'pointer' : 'default', fontFamily: 'inherit',
+            fontSize: 12.5, fontWeight: 600,
+            display: 'inline-flex', alignItems: 'center', gap: 6, flex: 'none',
+          }}>
+          <Icon.Upload size={14} /> Exporter PDF
+        </button>
       </div>
 
       {report && (

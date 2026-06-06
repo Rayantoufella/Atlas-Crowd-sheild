@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from '../../lib/icons.jsx';
+import { createIncident, exportIncidentsPDF } from '../../lib/api.js';
+
+const ZONES = ['gate_1','gate_2','gate_3','gate_4','gate_5','gate_6'];
 
 export default function IncidentReport() {
   const [data, setData] = useState(null);
@@ -7,6 +10,15 @@ export default function IncidentReport() {
   const [page, setPage] = useState(1);
   const [zoneFilter, setZoneFilter] = useState('');
   const [matchFilter, setMatchFilter] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [matchList, setMatchList] = useState([]);
+  const [form, setForm] = useState({
+    match_id: '', zone_id: 'gate_1', message: '',
+    agents_needed: 2, eta_minutes: 5, redirect_to: '', active: true,
+  });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { fetch('/api/match/list').then(r=>r.json()).then(setMatchList).catch(()=>{}); }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -19,6 +31,26 @@ export default function IncidentReport() {
       .catch(() => setLoading(false));
   }, [page, zoneFilter, matchFilter]);
 
+  const handleCreate = async () => {
+    if (!form.match_id || !form.message) return;
+    setSaving(true);
+    try {
+      await createIncident({ ...form, match_id: Number(form.match_id) });
+      setShowModal(false);
+      setForm({ match_id: '', zone_id: 'gate_1', message: '', agents_needed: 2, eta_minutes: 5, redirect_to: '', active: true });
+      // reload
+      setLoading(true);
+      const url = `/api/report/incidents?page=${page}`;
+      const res = await fetch(url);
+      const d = await res.json();
+      setData(d);
+    } catch (e) { alert('Erreur création: ' + e.message); }
+    setSaving(false);
+  };
+
+  const field = (k) => form[k];
+  const setField = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
   if (loading && !data) {
     return <div style={{ padding: 40, textAlign: 'center', color: 'var(--fg-2)' }}>Chargement...</div>;
   }
@@ -29,11 +61,34 @@ export default function IncidentReport() {
   const statCards = [
     { label: 'Total incidents', value: data?.total ?? 0, color: 'var(--red-2)', icon: <Icon.AlertTri size={16} /> },
     { label: 'Zones touchées', value: Object.keys(byZone).length, color: 'var(--orange-2)', icon: <Icon.Map size={16} /> },
-    { label: 'Cette page', value: items.length, color: 'var(--accent-2)', icon: <Icon.List size={16} /> },
+    { label: 'Cette page', value: items.length, color: 'var(--accent-2)', icon: <Icon.Eye size={16} /> },
   ];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      {/* Actions row */}
+      <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+        <button onClick={() => exportIncidentsPDF({ match_id: matchFilter || undefined, zone_id: zoneFilter || undefined })}
+          style={{
+            padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border-strong)',
+            background: 'var(--bg-2)', color: 'var(--fg-0)', cursor: 'pointer',
+            fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600,
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+          }}>
+          <Icon.Upload size={14} /> Exporter PDF
+        </button>
+        <button onClick={() => setShowModal(true)}
+          style={{
+            padding: '8px 16px', borderRadius: 8, border: 'none',
+            background: 'linear-gradient(135deg, var(--red-2), var(--red-deep))',
+            color: 'white', cursor: 'pointer',
+            fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600,
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+          }}>
+          <Icon.Plus size={14} /> Créer un incident
+        </button>
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
         {statCards.map((s, i) => (
           <div key={i} className="card card-pad" style={{
@@ -186,6 +241,90 @@ export default function IncidentReport() {
           </div>
         )}
       </div>
+
+      {/* Create incident modal */}
+      {showModal && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 100,
+          background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+          display: 'grid', placeItems: 'center',
+        }} onClick={() => setShowModal(false)}>
+          <div className="card" style={{
+            width: 460, maxHeight: '90vh', overflowY: 'auto',
+            padding: 24, display: 'flex', flexDirection: 'column', gap: 14,
+          }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="eyebrow">NOUVEL INCIDENT</div>
+              <button onClick={() => setShowModal(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--fg-2)', cursor: 'pointer', fontSize: 18 }}>
+                <Icon.X size={18} />
+              </button>
+            </div>
+
+            <label className="eyebrow" style={{ fontSize: 10.5 }}>Match</label>
+            <select value={form.match_id} onChange={setField('match_id')}
+              style={inpStyle}>
+              <option value="">Sélectionner un match</option>
+              {matchList.map((m) => (
+                <option key={m.id} value={m.id}>{m.team_a} vs {m.team_b}</option>
+              ))}
+            </select>
+
+            <label className="eyebrow" style={{ fontSize: 10.5 }}>Zone</label>
+            <select value={form.zone_id} onChange={setField('zone_id')} style={inpStyle}>
+              {ZONES.map((z) => (
+                <option key={z} value={z}>{z.toUpperCase().replace('GATE_', 'G')}</option>
+              ))}
+            </select>
+
+            <label className="eyebrow" style={{ fontSize: 10.5 }}>Message</label>
+            <textarea value={form.message} onChange={setField('message')}
+              style={{ ...inpStyle, minHeight: 70, resize: 'vertical' }} rows={3} />
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <label className="eyebrow" style={{ fontSize: 10.5 }}>Agents nécessaires</label>
+                <input type="number" value={form.agents_needed} onChange={setField('agents_needed')} style={inpStyle} />
+              </div>
+              <div>
+                <label className="eyebrow" style={{ fontSize: 10.5 }}>ETA (minutes)</label>
+                <input type="number" value={form.eta_minutes} onChange={setField('eta_minutes')} style={inpStyle} />
+              </div>
+            </div>
+
+            <label className="eyebrow" style={{ fontSize: 10.5 }}>Rediriger vers</label>
+            <select value={form.redirect_to} onChange={setField('redirect_to')} style={inpStyle}>
+              <option value="">Aucune redirection</option>
+              {ZONES.map((z) => (
+                <option key={z} value={z}>{z.toUpperCase().replace('GATE_', 'G')}</option>
+              ))}
+            </select>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+              <input type="checkbox" id="inc-active" checked={form.active}
+                onChange={(e) => setForm({ ...form, active: e.target.checked })} />
+              <label htmlFor="inc-active" style={{ fontSize: 12.5, color: 'var(--fg-1)' }}>Actif</label>
+            </div>
+
+            <button onClick={handleCreate} disabled={saving || !form.match_id || !form.message}
+              style={{
+                marginTop: 6, padding: '10px', borderRadius: 8, border: 'none',
+                background: !form.match_id || !form.message ? 'var(--bg-3)' : 'linear-gradient(135deg, var(--red-2), var(--red-deep))',
+                color: !form.match_id || !form.message ? 'var(--fg-3)' : 'white',
+                fontWeight: 700, fontSize: 13, cursor: !form.match_id || !form.message ? 'default' : 'pointer',
+                fontFamily: 'inherit',
+              }}>
+              {saving ? 'Création...' : 'Créer l\'incident'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+const inpStyle = {
+  background: 'var(--bg-2)', color: 'var(--fg-0)',
+  border: '1px solid var(--border-strong)', borderRadius: 8,
+  padding: '9px 12px', fontSize: 13, fontFamily: 'inherit', width: '100%', boxSizing: 'border-box',
+};

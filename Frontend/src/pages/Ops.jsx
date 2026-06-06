@@ -88,9 +88,10 @@ export default function Ops() {
             margin: 0, fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.15,
             background: 'linear-gradient(180deg, var(--fg-0), color-mix(in oklab, var(--fg-0) 75%, transparent))',
             WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextFillColor: 'transparent',
-          }}>Atlas Stadium · Match J24 — Live</h1>
+          }}>{liveState?.match || 'Atlas Stadium'} ·{' '}
+            {liveState?.match_status === 'LIVE' ? 'Live' : liveState?.match_status === 'UPCOMING' ? 'À venir' : liveState?.match_status === 'FINISHED' ? 'Terminé' : 'En attente'}</h1>
           <div className="fr" style={{ marginTop: 2 }}>
-            Stade Atlas · Journée 24 — Direction des opérations · Quart 18 h 00 — 02 h 00
+            {liveState?.match || 'Aucun match actif'}
           </div>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>

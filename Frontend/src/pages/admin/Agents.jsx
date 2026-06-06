@@ -9,9 +9,9 @@ import {
   TextField, SelectField, TextArea, FormGrid,
 } from '../../components/FormField.jsx';
 import {
-  SEED_AGENTS, SECTORS, AGENT_STATUSES, GATES,
+  SECTORS, AGENT_STATUSES, GATES,
 } from '../../lib/data.js';
-import { fetchAgents } from '../../lib/api.js';
+import { fetchAgents, createAgent, updateAgent, deleteAgent } from '../../lib/api.js';
 
 const STATUS_VARIANT = {
   DEPLOYED: 'ok',
@@ -26,16 +26,21 @@ const emptyAgent = () => ({
 });
 
 export default function Agents() {
-  const [agents, setAgents] = useState(SEED_AGENTS);
+  const [agents, setAgents] = useState([]);
   const [edit, setEdit] = useState(null);
   const [editInit, setEditInit] = useState(null);
   const [err, setErr] = useState({});
   const [del, setDel] = useState(null);
   const { toast, show, hide } = useToast();
 
-  useEffect(() => {
-    fetchAgents().then(setAgents).catch(() => {});
-  }, []);
+  const refresh = async () => {
+    try {
+      const data = await fetchAgents();
+      setAgents(data.map((a) => ({ ...a, backendId: parseInt(a.id.replace('A-', '')) })));
+    } catch { /* ignore */ }
+  };
+
+  useEffect(() => { refresh(); }, []);
 
   const validate = (a) => {
     const e = {};
@@ -47,22 +52,28 @@ export default function Agents() {
     return !Object.keys(e).length;
   };
 
-  const save = () => {
+  const save = async () => {
     if (!validate(edit)) return;
-    if (editInit?.id) {
-      setAgents((arr) => arr.map((a) => a.id === editInit.id ? edit : a));
-      show('Agent modifié');
-    } else {
-      const id = `A-${2400 + agents.length + 1}`;
-      setAgents((arr) => [...arr, { ...edit, id }]);
-      show('Agent ajouté');
-    }
+    const { id: _, backendId: __, ...body } = edit;
+    try {
+      if (editInit?.backendId) {
+        await updateAgent(editInit.backendId, body);
+        show('Agent modifié');
+      } else {
+        await createAgent(body);
+        show('Agent ajouté');
+      }
+      await refresh();
+    } catch { /* ignore */ }
     setEdit(null); setEditInit(null); setErr({});
   };
 
-  const onDelete = () => {
-    setAgents((arr) => arr.filter((a) => a.id !== del.id));
-    show(`Agent ${del.matricule} supprimé`);
+  const onDelete = async () => {
+    try {
+      await deleteAgent(del.backendId);
+      show(`Agent ${del.matricule} supprimé`);
+      await refresh();
+    } catch { /* ignore */ }
     setDel(null);
   };
 

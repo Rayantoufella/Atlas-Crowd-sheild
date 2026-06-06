@@ -1,10 +1,14 @@
 import React from 'react';
-import IncidentReport from './reports/IncidentReport.jsx';
-import MatchReport from './reports/MatchReport.jsx';
+
+const TABS = [
+  { key: 'incidents', label: 'Incidents', comp: React.lazy(() => import('./reports/IncidentReport.jsx')) },
+  { key: 'match',     label: 'Match',     comp: React.lazy(() => import('./reports/MatchReport.jsx')) },
+];
 
 export default function ReportsDashboard({ section, navigate }) {
   const active = section || 'incidents';
   const go = (k) => navigate(`/reports/${k}`);
+  const ActiveTab = TABS.find((t) => t.key === active)?.comp;
 
   return (
     <main style={{
@@ -19,10 +23,7 @@ export default function ReportsDashboard({ section, navigate }) {
       </div>
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
-        {[
-          { key: 'incidents', label: 'Incidents', icon: '⚠' },
-          { key: 'match', label: 'Match', icon: '🏟' },
-        ].map((t) => (
+        {TABS.map((t) => (
           <button
             key={t.key}
             onClick={() => go(t.key)}
@@ -37,13 +38,14 @@ export default function ReportsDashboard({ section, navigate }) {
               transition: 'all 0.15s',
             }}
           >
-            {t.icon} {t.label}
+            {t.label}
           </button>
         ))}
       </div>
 
-      {active === 'incidents' && <IncidentReport />}
-      {active === 'match' && <MatchReport />}
+      {ActiveTab && <React.Suspense fallback={<div style={{padding:40,textAlign:'center',color:'var(--fg-2)'}}>Chargement...</div>}>
+        <ActiveTab />
+      </React.Suspense>}
     </main>
   );
 }

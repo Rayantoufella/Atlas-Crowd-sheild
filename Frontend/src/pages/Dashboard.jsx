@@ -4,8 +4,9 @@
 // stadium map, critical-alert countdown, alert feed, AI prediction,
 // social-impact tiles, field-agent bars + toast notifications.
 // All design markup/logic lives here; styles are scoped under `.acs`.
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import StadiumMap from '../components/StadiumMap';
+import { fetchLiveState, fetchCameras } from '../lib/api.js';
 
 const CSS = `
 .acs {
@@ -253,19 +254,47 @@ const CSS = `
 .acs .toast-txt span { font-size: 11px; color: var(--text-2); }
 `;
 
-const CAMERAS = [
-  { id: 'CAM-01', loc: 'Entrée G1 — auvent',     res: '4K',    fps: 60, status: 'ACTIVE',  cls: 's-safe',  color: 'var(--safe)' },
-  { id: 'CAM-02', loc: 'Tribune NE — niveau 2',   res: '4K',    fps: 60, status: 'ACTIVE',  cls: 's-safe',  color: 'var(--safe)' },
-  { id: 'CAM-03', loc: 'Couloir VIP Est',         res: '4K',    fps: 60, status: 'ACTIVE',  cls: 's-safe',  color: 'var(--safe)' },
-  { id: 'CAM-04', loc: 'Porte 3 — extérieur',     res: '4K',    fps: 60, status: 'ACTIVE',  cls: 's-safe',  color: 'var(--safe)' },
-  { id: 'CAM-05', loc: 'Tribune SE — accès',      res: '1080p', fps: 30, status: 'OFFLINE', cls: 's-crit',  color: 'var(--danger)', blink: true },
-  { id: 'CAM-06', loc: 'Aire familles',           res: '4K',    fps: 60, status: 'ACTIVE',  cls: 's-safe',  color: 'var(--safe)' },
-  { id: 'CAM-07', loc: 'Sortie urgence Sud',      res: '1080p', fps: 30, status: 'OFFLINE', cls: 's-crit',  color: 'var(--danger)', blink: true },
-  { id: 'CAM-08', loc: 'Tribune Ouest — haute',   res: '4K',    fps: 60, status: 'ACTIVE',  cls: 's-safe',  color: 'var(--safe)' },
-];
-
 export default function Dashboard() {
   const rootRef = useRef(null);
+  const [live, setLive] = useState(null);
+  const [cameras, setCameras] = useState([]);
+
+  const fetchAll = () => {
+    fetchLiveState().then(setLive).catch(() => {});
+    fetchCameras().then(setCameras).catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchAll();
+    const id = setInterval(fetchAll, 3000);
+    return () => clearInterval(id);
+  }, []);
+
+  const s = live?.stats;
+  const camerasActive = s?.cameras_active ?? 6;
+  const camerasTotal = s?.cameras_total ?? 8;
+
+  /* ---- camera feed list: re-render whenever cameras data changes ---- */
+  useEffect(() => {
+    if (!rootRef.current) return;
+    const $ = (sel) => rootRef.current.querySelector(sel);
+    const activeColor = 'var(--safe)';
+    const offlineColor = 'var(--danger)';
+    const el = $('#acs-zoneList');
+    if (!el) return;
+    el.innerHTML = cameras.map((c) => {
+      const active = c.status === 'ACTIVE';
+      const color = active ? activeColor : offlineColor;
+      const cls = active ? 's-safe' : 's-crit';
+      const blink = !active;
+      return `<div class="zone">
+        <span class="zdot ${blink ? 'blink' : ''}" style="background:${color}; box-shadow:0 0 8px ${color};"></span>
+        <span class="zname">${c.id}<small>${c.loc}</small></span>
+        <span class="zpct" style="color:var(--text-3)">${c.resolution} · ${c.fps}fps</span>
+        <span class="zbadge ${cls} ${blink ? 'blink' : ''}">${c.status}</span>
+      </div>`;
+    }).join('');
+  }, [cameras]);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -287,15 +316,6 @@ export default function Dashboard() {
       tickClock();
       setIv(tickClock, 1000);
     }
-
-    /* ---- camera feed list ---- */
-    $('#acs-zoneList').innerHTML = CAMERAS.map((c) => `
-      <div class="zone">
-        <span class="zdot ${c.blink ? 'blink' : ''}" style="background:${c.color}; box-shadow:0 0 8px ${c.color};"></span>
-        <span class="zname">${c.id}<small>${c.loc}</small></span>
-        <span class="zpct" style="color:var(--text-3)">${c.res} · ${c.fps}fps</span>
-        <span class="zbadge ${c.cls} ${c.blink ? 'blink' : ''}">${c.status}</span>
-      </div>`).join('');
 
     /* ---- stadium map is now the self-contained <StadiumMap /> component ---- */
 
@@ -511,7 +531,7 @@ export default function Dashboard() {
 
               <div className="glass card" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                 <div className="card-head">
-                  <span className="label">Camera Feeds · 8 Caméras</span>
+                  <span className="label">Camera Feeds · {camerasTotal} Caméras</span>
                   <span className="label" style={{ color: 'var(--text-3)' }}>Live</span>
                 </div>
                 <div className="zone-list" id="acs-zoneList"></div>
@@ -589,24 +609,6 @@ export default function Dashboard() {
               </div>
 
               <div className="glass card">
-                <div className="card-head"><span className="label">Social Impact · Active</span></div>
-                <div className="social">
-                  <div className="si green">
-                    <svg viewBox="0 0 20 20" fill="none"><circle cx="7" cy="6" r="2.6" stroke="#1FD17B" strokeWidth="1.5" /><circle cx="14" cy="7" r="2.1" stroke="#1FD17B" strokeWidth="1.5" /><path d="M3 17c0-3 2-4.5 4-4.5s4 1.5 4 4.5M11.5 17c0-2.4 1.6-3.8 3.2-3.8s3.3 1.4 3.3 3.8" stroke="#1FD17B" strokeWidth="1.5" strokeLinecap="round" /></svg>
-                    <div><div className="si-name">Family Zones</div><div className="si-stat">8 zones · clear</div></div>
-                  </div>
-                  <div className="si blue">
-                    <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="3.4" stroke="#3B9EFF" strokeWidth="1.5" /><circle cx="10" cy="10" r="7.5" stroke="#3B9EFF" strokeWidth="1.5" strokeDasharray="3 3" /></svg>
-                    <div><div className="si-name">PMR Routes</div><div className="si-stat">14 routes open</div></div>
-                  </div>
-                  <div className="si purple">
-                    <svg viewBox="0 0 20 20" fill="none"><path d="M10 2 L17 5 V11 C17 15 14 17.5 10 18.5 C6 17.5 3 15 3 11 V5 Z" stroke="#A66BFF" strokeWidth="1.5" strokeLinejoin="round" /></svg>
-                    <div><div className="si-name">Anti-Harassment</div><div className="si-stat">Patrol active</div></div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="glass card">
                 <div className="card-head"><span className="label">Field Agents · By Sector</span></div>
                 <div className="agent-row">
                   <span className="an">Nord</span>
@@ -638,7 +640,7 @@ export default function Dashboard() {
             <div className="pills">
               <span className="pill green"><i></i>AI Active</span>
               <span className="pill green"><i></i>WebSocket Connected</span>
-              <span className="pill orange"><i></i>Cameras 47/48</span>
+              <span className="pill orange"><i></i>Cameras {camerasActive}/{camerasTotal}</span>
             </div>
           </footer>
         </div>

@@ -1,19 +1,67 @@
 from flask import Blueprint, jsonify, request
+from database import db
+from models.camera import Camera
 
 cameras_bp = Blueprint("cameras", __name__)
 
-SEED_CAMERAS = [
-    {"id": "CAM-01", "zone": "Nord", "loc": "Entrée G1 — auvent", "resolution": "4K", "fps": 60, "status": "ACTIVE", "lat": 33.9716, "lng": -6.8498, "ip": "10.0.1.21"},
-    {"id": "CAM-02", "zone": "Nord-Est", "loc": "Tribune NE — niveau 2", "resolution": "4K", "fps": 60, "status": "ACTIVE", "lat": 33.9717, "lng": -6.8492, "ip": "10.0.1.22"},
-    {"id": "CAM-03", "zone": "Est", "loc": "Couloir VIP Est", "resolution": "4K", "fps": 60, "status": "ACTIVE", "lat": 33.9718, "lng": -6.8488, "ip": "10.0.1.23"},
-    {"id": "CAM-04", "zone": "Est", "loc": "Porte 3 — extérieur", "resolution": "4K", "fps": 60, "status": "ACTIVE", "lat": 33.9719, "lng": -6.8487, "ip": "10.0.1.24"},
-    {"id": "CAM-05", "zone": "Sud-Est", "loc": "Tribune SE — accès", "resolution": "1080p", "fps": 30, "status": "OFFLINE", "lat": 33.9714, "lng": -6.8489, "ip": "10.0.1.25"},
-    {"id": "CAM-06", "zone": "Sud", "loc": "Aire familles", "resolution": "4K", "fps": 60, "status": "ACTIVE", "lat": 33.9712, "lng": -6.8495, "ip": "10.0.1.26"},
-    {"id": "CAM-07", "zone": "Sud", "loc": "Sortie urgence Sud", "resolution": "1080p", "fps": 30, "status": "OFFLINE", "lat": 33.9713, "lng": -6.8500, "ip": "10.0.1.27"},
-    {"id": "CAM-08", "zone": "Ouest", "loc": "Tribune Ouest — haute", "resolution": "4K", "fps": 60, "status": "ACTIVE", "lat": 33.9715, "lng": -6.8503, "ip": "10.0.1.28"},
-]
+
+def _cam_to_dict(c):
+    return {
+        "id": f"CAM-{c.id:02d}",
+        "zone": c.zone,
+        "loc": c.loc or "",
+        "resolution": c.resolution,
+        "fps": c.fps,
+        "status": c.status,
+        "lat": c.lat,
+        "lng": c.lng,
+        "ip": c.ip or "",
+    }
 
 
 @cameras_bp.route("/api/camera/list")
 def list_cameras():
-    return jsonify(SEED_CAMERAS)
+    cams = Camera.query.order_by(Camera.id).all()
+    return jsonify([_cam_to_dict(c) for c in cams])
+
+
+@cameras_bp.route("/api/camera/create", methods=["POST"])
+def create_camera():
+    data = request.get_json(force=True)
+    c = Camera(
+        zone=data.get("zone", "Nord"),
+        loc=data.get("loc", ""),
+        resolution=data.get("resolution", "4K"),
+        fps=data.get("fps", 60),
+        status=data.get("status", "ACTIVE"),
+        lat=data.get("lat"),
+        lng=data.get("lng"),
+        ip=data.get("ip", ""),
+    )
+    db.session.add(c)
+    db.session.commit()
+    return jsonify(_cam_to_dict(c)), 201
+
+
+@cameras_bp.route("/api/camera/<int:camera_id>", methods=["PUT"])
+def update_camera(camera_id):
+    c = Camera.query.get_or_404(camera_id)
+    data = request.get_json(force=True)
+    if "zone" in data: c.zone = data["zone"]
+    if "loc" in data: c.loc = data["loc"]
+    if "resolution" in data: c.resolution = data["resolution"]
+    if "fps" in data: c.fps = data["fps"]
+    if "status" in data: c.status = data["status"]
+    if "lat" in data: c.lat = data["lat"]
+    if "lng" in data: c.lng = data["lng"]
+    if "ip" in data: c.ip = data["ip"]
+    db.session.commit()
+    return jsonify(_cam_to_dict(c))
+
+
+@cameras_bp.route("/api/camera/<int:camera_id>", methods=["DELETE"])
+def delete_camera(camera_id):
+    c = Camera.query.get_or_404(camera_id)
+    db.session.delete(c)
+    db.session.commit()
+    return jsonify({"status": "deleted"})
