@@ -3,10 +3,10 @@ import { Icon } from '../lib/icons.jsx';
 import API_BASE from '../lib/config.js';
 
 const LABEL_COLORS = {
-  BAGARRE: { bg: 'rgba(244,63,94,0.18)', fg: '#fb7185', label: 'Fight' },
-  COURSE: { bg: 'rgba(251,146,60,0.18)', fg: '#fdba74', label: 'Running' },
-  SOL: { bg: 'rgba(250,204,21,0.18)', fg: '#fde047', label: 'Fallen' },
-  ATTROUPEMENT: { bg: 'rgba(59,130,246,0.18)', fg: '#60a5fa', label: 'Crowding' },
+  CRITICAL: { bg: 'rgba(244,63,94,0.18)', fg: '#fb7185', label: 'Critical' },
+  HIGH: { bg: 'rgba(251,146,60,0.18)', fg: '#fdba74', label: 'High Risk' },
+  MEDIUM: { bg: 'rgba(250,204,21,0.18)', fg: '#fde047', label: 'Medium Risk' },
+  LOW: { bg: 'rgba(59,130,246,0.18)', fg: '#60a5fa', label: 'Low Risk' },
 };
 
 export default function Forensic() {

@@ -1,5 +1,4 @@
-// Admin · Paramètres — left card (config sliders/toggles) + right card (system status).
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Icon } from '../../lib/icons.jsx';
 import { Button } from '../../components/Button.jsx';
 import { Badge } from '../../components/Badge.jsx';
@@ -7,8 +6,15 @@ import Toast, { useToast } from '../../components/Toast.jsx';
 import {
   TextField, SelectField, Toggle, Slider, FormGrid,
 } from '../../components/FormField.jsx';
+import { fetchSettings, saveSettings } from '../../lib/api.js';
 
-const DEFAULTS = {
+const MODE_PRESETS = {
+  fast:   { weight_velocity: 35, weight_accel: 20, weight_proximity: 25, weight_object: 20, conf_threshold: 15 },
+  balanced: { weight_velocity: 40, weight_accel: 25, weight_proximity: 15, weight_object: 20, conf_threshold: 20 },
+  strict: { weight_velocity: 50, weight_accel: 25, weight_proximity: 15, weight_object: 10, conf_threshold: 30 },
+};
+
+const FALLBACK = {
   riskThreshold: 75,
   warnThreshold: 60,
   refresh: '2s',
@@ -21,12 +27,105 @@ const DEFAULTS = {
   retentionDays: 30,
   mfaEnabled: true,
   apiToken: 'atlas_sk_•••••_8f72',
+  weight_velocity: 40,
+  weight_accel: 25,
+  weight_proximity: 15,
+  weight_object: 20,
+  stream_jpeg_quality: 85,
+  snapshot_jpeg_quality: 85,
+  stream_width: 854,
+  snapshot_width: 320,
 };
 
+const wLabel = { weight_velocity: 'Velocity', weight_accel: 'Acceleration', weight_proximity: 'Proximity', weight_object: 'Object' };
+const wHint  = { weight_velocity: 'Speed of movement signal', weight_accel: 'Sudden change signal', weight_proximity: 'Nearby people signal', weight_object: 'Dangerous object signal' };
+
 export default function Parametres() {
-  const [cfg, setCfg] = useState(DEFAULTS);
+  const [cfg, setCfg] = useState(FALLBACK);
+  const [loading, setLoading] = useState(true);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const { toast, show, hide } = useToast();
   const set = (k, v) => setCfg((c) => ({ ...c, [k]: v }));
+
+  useEffect(() => {
+    fetchSettings()
+      .then((data) => {
+        setCfg((c) => ({
+          ...c,
+          riskThreshold: data.riskThreshold ?? FALLBACK.riskThreshold,
+          warnThreshold: data.warnThreshold ?? FALLBACK.warnThreshold,
+          refresh: data.refresh ?? FALLBACK.refresh,
+          detectionMode: data.detectionMode ?? FALLBACK.detectionMode,
+          weight_velocity: Math.round((data.weight_velocity ?? 0.4) * 100),
+          weight_accel: Math.round((data.weight_accel ?? 0.25) * 100),
+          weight_proximity: Math.round((data.weight_proximity ?? 0.15) * 100),
+          weight_object: Math.round((data.weight_object ?? 0.2) * 100),
+          stream_jpeg_quality: data.stream_jpeg_quality ?? 85,
+          snapshot_jpeg_quality: data.snapshot_jpeg_quality ?? 85,
+          stream_width: data.stream_width ?? 854,
+          snapshot_width: data.snapshot_width ?? 320,
+        }));
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const applyMode = (mode) => {
+    const p = MODE_PRESETS[mode] || MODE_PRESETS.balanced;
+    setCfg((c) => ({
+      ...c,
+      detectionMode: mode,
+      weight_velocity: p.weight_velocity,
+      weight_accel: p.weight_accel,
+      weight_proximity: p.weight_proximity,
+      weight_object: p.weight_object,
+    }));
+  };
+
+  const handleSave = async () => {
+    try {
+      const body = {
+        riskThreshold: cfg.riskThreshold,
+        warnThreshold: cfg.warnThreshold,
+        refresh: cfg.refresh,
+        detectionMode: cfg.detectionMode,
+        weight_velocity: cfg.weight_velocity / 100,
+        weight_accel: cfg.weight_accel / 100,
+        weight_proximity: cfg.weight_proximity / 100,
+        weight_object: cfg.weight_object / 100,
+        stream_jpeg_quality: cfg.stream_jpeg_quality,
+        snapshot_jpeg_quality: cfg.snapshot_jpeg_quality,
+        stream_width: cfg.stream_width,
+        snapshot_width: cfg.snapshot_width,
+      };
+      await saveSettings(body);
+      show('Paramètres enregistrés');
+    } catch {
+      show('Erreur lors de la sauvegarde');
+    }
+  };
+
+  const handleReset = () => {
+    applyMode('balanced');
+    setCfg((c) => ({
+      ...c,
+      riskThreshold: FALLBACK.riskThreshold,
+      warnThreshold: FALLBACK.warnThreshold,
+      refresh: FALLBACK.refresh,
+      stream_jpeg_quality: FALLBACK.stream_jpeg_quality,
+      snapshot_jpeg_quality: FALLBACK.snapshot_jpeg_quality,
+      stream_width: FALLBACK.stream_width,
+      snapshot_width: FALLBACK.snapshot_width,
+    }));
+  };
+
+  if (loading) {
+    return (
+      <main style={{ padding: 40, textAlign: 'center', color: 'var(--fg-2)' }}>
+        Chargement des paramètres…
+      </main>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -48,12 +147,64 @@ export default function Parametres() {
               <SelectField label="Fréquence d'inférence" value={cfg.refresh}
                 onChange={(v) => set('refresh', v)} options={['1s', '2s', '5s']} />
               <SelectField label="Mode de détection" value={cfg.detectionMode}
-                onChange={(v) => set('detectionMode', v)}
+                onChange={(v) => applyMode(v)}
                 options={[
                   { value: 'fast', label: 'Rapide (sensible)' },
                   { value: 'balanced', label: 'Équilibré' },
                   { value: 'strict', label: 'Strict (peu de faux positifs)' },
                 ]} />
+            </FormGrid>
+
+            <div style={{ marginTop: 8 }}>
+              <button
+                type="button"
+                onClick={() => setShowAdvanced((v) => !v)}
+                style={{
+                  background: 'none', border: 'none', color: 'var(--accent-2)',
+                  fontFamily: 'inherit', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  padding: '4px 0', display: 'flex', alignItems: 'center', gap: 6,
+                }}
+              >
+                <span style={{
+                  display: 'inline-block', transition: 'transform 0.2s',
+                  transform: showAdvanced ? 'rotate(90deg)' : 'rotate(0deg)',
+                }}>▶</span>
+                Poids avancés
+              </button>
+
+              {showAdvanced && (
+                <div style={{
+                  marginTop: 10, padding: 14, borderRadius: 10,
+                  background: 'var(--bg-2)', border: '1px solid var(--border)',
+                  display: 'flex', flexDirection: 'column', gap: 12,
+                }}>
+                  <div className="eyebrow" style={{ marginBottom: 2 }}>POIDS DES SIGNAUX</div>
+                  <div className="fr" style={{ marginBottom: 6 }}>
+                    Poids ajustables pour chaque signal de comportement
+                  </div>
+                  {['weight_velocity', 'weight_accel', 'weight_proximity', 'weight_object'].map((k) => (
+                    <Slider key={k} label={wLabel[k]} value={cfg[k]} min={0} max={100} unit="%"
+                      onChange={(v) => set(k, v)} hint={wHint[k]} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </Section>
+
+          <Divider />
+
+          <Section title="QUALITÉ IMAGE" subtitle="Résolution et compression du flux et des captures">
+            <FormGrid cols={2}>
+              <Slider label="Qualité stream" value={cfg.stream_jpeg_quality} min={50} max={100} unit="%"
+                onChange={(v) => set('stream_jpeg_quality', v)} hint="JPEG compression du flux live" />
+              <Slider label="Qualité snapshots" value={cfg.snapshot_jpeg_quality} min={50} max={100} unit="%"
+                onChange={(v) => set('snapshot_jpeg_quality', v)} hint="JPEG compression des captures" />
+              <SelectField label="Résolution stream" value={String(cfg.stream_width)}
+                onChange={(v) => set('stream_width', Number(v))}
+                options={[{value:'640',label:'640p'},{value:'854',label:'854p'},{value:'1280',label:'1280p'}]} />
+              <SelectField label="Taille snapshots" value={String(cfg.snapshot_width)}
+                onChange={(v) => set('snapshot_width', Number(v))}
+                options={[{value:'240',label:'240px'},{value:'320',label:'320px'},{value:'480',label:'480px'},{value:'640',label:'640px'}]} />
             </FormGrid>
           </Section>
 
@@ -90,8 +241,8 @@ export default function Parametres() {
           </Section>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 4 }}>
-            <Button onClick={() => setCfg(DEFAULTS)}>Réinitialiser</Button>
-            <Button variant="primary" onClick={() => show('Paramètres enregistrés')}>
+            <Button onClick={handleReset}>Réinitialiser</Button>
+            <Button variant="primary" onClick={handleSave}>
               <Icon.Check size={14} /> Enregistrer
             </Button>
           </div>

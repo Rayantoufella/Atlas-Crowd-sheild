@@ -30,6 +30,8 @@ from routes.cameras import cameras_bp
 from routes.agents import agents_bp
 from routes.events import events_bp
 from routes.forensic import forensic_bp
+from routes.settings import settings_bp
+from routes.reports import reports_bp
 
 app.register_blueprint(match_bp)
 app.register_blueprint(zones_bp)
@@ -39,6 +41,8 @@ app.register_blueprint(cameras_bp)
 app.register_blueprint(agents_bp)
 app.register_blueprint(events_bp)
 app.register_blueprint(forensic_bp)
+app.register_blueprint(settings_bp)
+app.register_blueprint(reports_bp)
 
 
 @app.route("/health")

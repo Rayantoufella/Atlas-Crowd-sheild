@@ -122,6 +122,33 @@ export async function fetchReport(matchId) {
   return get(`/api/report/${matchId}`);
 }
 
+export async function fetchIncidents(params = {}) {
+  const qs = new URLSearchParams(params).toString();
+  return get(`/api/report/incidents${qs ? '?' + qs : ''}`);
+}
+
+export async function fetchIncidentDetail(id) {
+  return get(`/api/report/incident/${id}`);
+}
+
+export async function fetchMatchSummary(matchId) {
+  return get(`/api/report/match-summary/${matchId}`);
+}
+
+export async function fetchSettings() {
+  return get('/api/settings');
+}
+
+export async function saveSettings(data) {
+  const res = await fetch(`${API_BASE}/api/settings`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`PUT /api/settings failed: ${res.status}`);
+  return res.json();
+}
+
 export function gateStateFromRiskScore(risk) {
   return gateStateFromRisk(risk);
 }

@@ -1,0 +1,5 @@
+Backend/uploads/
+Backend/yolov8n.pt
+Backend/analyzer/__pycache__/
+Backend/routes/__pycache__/
+node_modules/
