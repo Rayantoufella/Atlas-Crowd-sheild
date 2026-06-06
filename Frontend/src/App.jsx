@@ -6,6 +6,7 @@ import Login from './pages/Login.jsx';
 import Ops from './pages/Ops.jsx';
 import Admin from './pages/Admin.jsx';
 import Reports from './pages/Reports.jsx';
+import Forensic from './pages/Forensic.jsx';
 
 const AUTH_KEY = 'atlas.auth';
 
@@ -39,11 +40,12 @@ export default function App() {
     <div style={{ minWidth: 1140, position: 'relative', zIndex: 1 }}>
       <NavBar
         activeTab={page}
-        onTab={(k) => navigate(k === 'ops' ? '/ops' : k === 'admin' ? '/admin' : '/reports')}
+        onTab={(k) => navigate(k === 'ops' ? '/ops' : k === 'forensic' ? '/forensic' : k === 'admin' ? '/admin' : '/reports')}
         onLogout={onLogout}
         user={auth.name || auth.email}
       />
       {page === 'ops' && <Ops />}
+      {page === 'forensic' && <Forensic />}
       {page === 'admin' && <Admin section={segments[1]} navigate={navigate} />}
       {page === 'reports' && <Reports />}
     </div>

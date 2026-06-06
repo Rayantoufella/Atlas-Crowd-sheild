@@ -16,6 +16,7 @@ export default function NavBar({ activeTab, onTab, onLogout, user = 'M. Rousseau
   const clock = useClock();
   const tabs = [
     { key: 'ops',     label: 'Security Ops' },
+    { key: 'forensic', label: 'Forensic' },
     { key: 'admin',   label: 'Admin' },
     { key: 'reports', label: 'Reports' },
   ];
