@@ -12,10 +12,10 @@ function useClock() {
   return `${pad(t.getHours())}:${pad(t.getMinutes())}:${pad(t.getSeconds())}`;
 }
 
-export default function NavBar({ activeTab, onTab, onLogout, user = 'M. Rousseau' }) {
+export default function NavBar({ activeTab, onTab, user = 'M. Rousseau' }) {
   const clock = useClock();
   const tabs = [
-    { key: 'ops',     label: 'Security Ops' },
+    { key: 'dashboard', label: 'Command Center' },
     { key: 'forensic', label: 'Forensic' },
     { key: 'admin',   label: 'Admin' },
     { key: 'reports', label: 'Reports' },
@@ -94,16 +94,6 @@ export default function NavBar({ activeTab, onTab, onLogout, user = 'M. Rousseau
       }} title={user}>
         {user.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()}
       </div>
-
-      {/* Logout */}
-      <button onClick={onLogout} title="Se déconnecter"
-        style={{
-          background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-strong)',
-          color: 'var(--fg-1)', padding: '8px 10px', borderRadius: 10,
-          display: 'grid', placeItems: 'center', cursor: 'pointer',
-        }}>
-        <Icon.Logout />
-      </button>
     </header>
   );
 }
