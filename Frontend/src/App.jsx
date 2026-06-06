@@ -5,7 +5,7 @@ import NavBar from './components/NavBar.jsx';
 import Login from './pages/Login.jsx';
 import Ops from './pages/Ops.jsx';
 import Admin from './pages/Admin.jsx';
-import Reports from './pages/Reports.jsx';
+import ReportsDashboard from './pages/ReportsDashboard.jsx';
 import Forensic from './pages/Forensic.jsx';
 
 const AUTH_KEY = 'atlas.auth';
@@ -47,7 +47,7 @@ export default function App() {
       {page === 'ops' && <Ops />}
       {page === 'forensic' && <Forensic />}
       {page === 'admin' && <Admin section={segments[1]} navigate={navigate} />}
-      {page === 'reports' && <Reports />}
+      {page === 'reports' && <ReportsDashboard section={segments[1]} navigate={navigate} />}
     </div>
   );
 }

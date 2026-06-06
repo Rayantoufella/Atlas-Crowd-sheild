@@ -122,6 +122,19 @@ export async function fetchReport(matchId) {
   return get(`/api/report/${matchId}`);
 }
 
+export async function fetchIncidents(params = {}) {
+  const qs = new URLSearchParams(params).toString();
+  return get(`/api/report/incidents${qs ? '?' + qs : ''}`);
+}
+
+export async function fetchIncidentDetail(id) {
+  return get(`/api/report/incident/${id}`);
+}
+
+export async function fetchMatchSummary(matchId) {
+  return get(`/api/report/match-summary/${matchId}`);
+}
+
 export async function fetchSettings() {
   return get('/api/settings');
 }
