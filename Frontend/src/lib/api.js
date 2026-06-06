@@ -231,6 +231,10 @@ export async function deleteAgent(id) {
   return del(`/api/agent/${id}`);
 }
 
+export async function fetchZones() {
+  return get('/api/zones');
+}
+
 export async function updateZone(gateId, data) {
   return put(`/api/zones/${gateId}`, data);
 }

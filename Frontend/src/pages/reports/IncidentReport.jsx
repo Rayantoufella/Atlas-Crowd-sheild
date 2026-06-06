@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from '../../lib/icons.jsx';
-import { createIncident, exportIncidentsPDF } from '../../lib/api.js';
-
-const ZONES = ['gate_1','gate_2','gate_3','gate_4','gate_5','gate_6'];
+import { fetchMatches, fetchZones, fetchIncidents, createIncident, exportIncidentsPDF } from '../../lib/api.js';
 
 export default function IncidentReport() {
   const [data, setData] = useState(null);
@@ -12,24 +10,29 @@ export default function IncidentReport() {
   const [matchFilter, setMatchFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [matchList, setMatchList] = useState([]);
+  const [zones, setZones] = useState([]);
   const [form, setForm] = useState({
-    match_id: '', zone_id: 'gate_1', message: '',
+    match_id: '', zone_id: '', message: '',
     agents_needed: 2, eta_minutes: 5, redirect_to: '', active: true,
   });
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { fetch('/api/match/list').then(r=>r.json()).then(setMatchList).catch(()=>{}); }, []);
-
   useEffect(() => {
+    fetchMatches().then(setMatchList).catch(() => {});
+    fetchZones().then(setZones).catch(() => {});
+  }, []);
+
+  const loadIncidents = () => {
     setLoading(true);
-    let url = `/api/report/incidents?page=${page}`;
-    if (zoneFilter) url += `&zone_id=${zoneFilter}`;
-    if (matchFilter) url += `&match_id=${matchFilter}`;
-    fetch(url)
-      .then((r) => r.json())
+    const params = { page };
+    if (zoneFilter) params.zone_id = zoneFilter;
+    if (matchFilter) params.match_id = matchFilter;
+    fetchIncidents(params)
       .then((d) => { setData(d); setLoading(false); })
       .catch(() => setLoading(false));
-  }, [page, zoneFilter, matchFilter]);
+  };
+
+  useEffect(loadIncidents, [page, zoneFilter, matchFilter]);
 
   const handleCreate = async () => {
     if (!form.match_id || !form.message) return;
@@ -37,13 +40,8 @@ export default function IncidentReport() {
     try {
       await createIncident({ ...form, match_id: Number(form.match_id) });
       setShowModal(false);
-      setForm({ match_id: '', zone_id: 'gate_1', message: '', agents_needed: 2, eta_minutes: 5, redirect_to: '', active: true });
-      // reload
-      setLoading(true);
-      const url = `/api/report/incidents?page=${page}`;
-      const res = await fetch(url);
-      const d = await res.json();
-      setData(d);
+      setForm({ match_id: '', zone_id: '', message: '', agents_needed: 2, eta_minutes: 5, redirect_to: '', active: true });
+      loadIncidents();
     } catch (e) { alert('Erreur création: ' + e.message); }
     setSaving(false);
   };
@@ -272,7 +270,8 @@ export default function IncidentReport() {
 
             <label className="eyebrow" style={{ fontSize: 10.5 }}>Zone</label>
             <select value={form.zone_id} onChange={setField('zone_id')} style={inpStyle}>
-              {ZONES.map((z) => (
+              <option value="">Sélectionner une zone</option>
+              {zones.map((z) => (
                 <option key={z} value={z}>{z.toUpperCase().replace('GATE_', 'G')}</option>
               ))}
             </select>
@@ -295,7 +294,7 @@ export default function IncidentReport() {
             <label className="eyebrow" style={{ fontSize: 10.5 }}>Rediriger vers</label>
             <select value={form.redirect_to} onChange={setField('redirect_to')} style={inpStyle}>
               <option value="">Aucune redirection</option>
-              {ZONES.map((z) => (
+              {zones.map((z) => (
                 <option key={z} value={z}>{z.toUpperCase().replace('GATE_', 'G')}</option>
               ))}
             </select>

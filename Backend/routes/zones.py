@@ -72,6 +72,11 @@ def zones_live():
     return jsonify(state)
 
 
+@zones_bp.route("/api/zones")
+def list_zones():
+    return jsonify([z["id"] for z in DEFAULT_ZONES])
+
+
 @zones_bp.route("/api/zones/<string:gate_id>", methods=["PUT"])
 def update_zone(gate_id):
     data = request.get_json(force=True)

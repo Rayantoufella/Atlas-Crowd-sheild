@@ -4,9 +4,9 @@
 // stadium map, critical-alert countdown, alert feed, AI prediction,
 // social-impact tiles, field-agent bars + toast notifications.
 // All design markup/logic lives here; styles are scoped under `.acs`.
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import StadiumMap from '../components/StadiumMap';
-import { fetchLiveState, fetchCameras } from '../lib/api.js';
+import { fetchLiveState, fetchCameras, fetchAgents, fetchEvents } from '../lib/api.js';
 
 const CSS = `
 .acs {
@@ -258,10 +258,20 @@ export default function Dashboard() {
   const rootRef = useRef(null);
   const [live, setLive] = useState(null);
   const [cameras, setCameras] = useState([]);
+  const [agents, setAgents] = useState([]);
+  const [events, setEvents] = useState([]);
+
+  /* refs so timer callbacks can always read the latest values */
+  const liveRef = useRef(live);
+  liveRef.current = live;
+  const eventsRef = useRef(events);
+  eventsRef.current = events;
 
   const fetchAll = () => {
     fetchLiveState().then(setLive).catch(() => {});
     fetchCameras().then(setCameras).catch(() => {});
+    fetchAgents().then(setAgents).catch(() => {});
+    fetchEvents().then(setEvents).catch(() => {});
   };
 
   useEffect(() => {
@@ -273,6 +283,19 @@ export default function Dashboard() {
   const s = live?.stats;
   const camerasActive = s?.cameras_active ?? 6;
   const camerasTotal = s?.cameras_total ?? 8;
+
+  /* group agents by sector */
+  const sectorAgents = useMemo(() => {
+    const grouped = {};
+    agents.forEach((a) => {
+      const sec = a.sector || 'Autre';
+      grouped[sec] = (grouped[sec] || 0) + 1;
+    });
+    return grouped;
+  }, [agents]);
+
+  const SECTOR_ORDER = ['Nord', 'Nord-Est', 'Est', 'Sud-Est', 'Sud', 'Ouest'];
+  const maxSector = Math.max(...Object.values(sectorAgents), 1);
 
   /* ---- camera feed list: re-render whenever cameras data changes ---- */
   useEffect(() => {
@@ -322,8 +345,10 @@ export default function Dashboard() {
     /* ---- alert feed ---- */
     const COLORS = { danger: 'var(--danger)', warning: 'var(--warning)', safe: 'var(--safe)', info: 'var(--info)' };
     const TAGCOLOR = { danger: 'c-crit', warning: 'c-warn', safe: 'c-safe', info: 'c-info' };
+    const TAG_MAP = { CRIT: 'CRITICAL', WARN: 'RISING', OK: 'NORMAL' };
+    const CLS_MAP = { CRIT: 'danger', WARN: 'warning', OK: 'safe' };
     const feedEl = $('#acs-feed');
-    feedEl.innerHTML = ''; // idempotent — avoid double-seeding under StrictMode re-mount
+    feedEl.innerHTML = '';
     const nowStamp = () => {
       const d = new Date();
       const p = (n) => String(n).padStart(2, '0');
@@ -339,22 +364,34 @@ export default function Dashboard() {
       feedEl.prepend(row);
       while (feedEl.children.length > 3) feedEl.removeChild(feedEl.lastChild);
     };
-    [
-      { time: '21:15', tag: 'NORMAL',   txt: 'Crowd flow normalized at <b>Porte 1 Nord</b>', cls: 'safe' },
-      { time: '21:28', tag: 'RISING',   txt: 'Density rising at <b>Porte 6 Nord-Ouest</b> — monitoring', cls: 'warning' },
-      { time: '21:34', tag: 'CRITICAL', txt: 'Abnormal compression at <b>Porte 3 Est</b> — intervention advised', cls: 'danger' },
-    ].forEach(addAlert);
-    const STREAM = [
-      { tag: 'SENSOR', txt: 'Thermal density scan refreshed across east concourse', cls: 'info' },
-      { tag: 'RISING', txt: '<b>Porte 4 Sud</b> ingress rate up 9% — AI watching', cls: 'warning' },
-      { tag: 'NORMAL', txt: 'Flow velocity stabilized at <b>Porte 2 Nord-Est</b>', cls: 'safe' },
-      { tag: 'PATROL', txt: 'Anti-harassment unit repositioned to south stand', cls: 'info' },
-      { tag: 'CAMERA', txt: 'CCTV-34 offline — backup feed engaged', cls: 'warning' },
-      { tag: 'NORMAL', txt: 'PMR route 7 confirmed clear and accessible', cls: 'safe' },
-      { tag: 'SENSOR', txt: 'Acoustic sentiment stable — no aggression markers', cls: 'info' },
-    ];
+    /* seed and stream from events */
+    const seedEvents = () => {
+      const evts = eventsRef.current;
+      feedEl.innerHTML = '';
+      evts.slice(0, 3).forEach((e) => {
+        addAlert({
+          time: e.time || nowStamp(),
+          tag: TAG_MAP[e.level] || e.level,
+          txt: `<b>${e.zone || ''}</b> ${e.message}`,
+          cls: CLS_MAP[e.level] || 'info',
+        });
+      });
+    };
+    seedEvents();
     let si = 0;
-    setIv(() => { addAlert(STREAM[si % STREAM.length]); si++; }, 8000);
+    setIv(() => {
+      const evts = eventsRef.current;
+      if (evts.length === 0) return;
+      const e = evts[si % evts.length];
+      addAlert({
+        time: e.time || nowStamp(),
+        tag: TAG_MAP[e.level] || e.level,
+        txt: `<b>${e.zone || ''}</b> ${e.message}`,
+        cls: CLS_MAP[e.level] || 'info',
+      });
+      si++;
+    }, 8000);
+    /* re-seed when events ref changes (observed via interval above) */
 
     /* ---- global risk ---- */
     (function () {
@@ -362,31 +399,30 @@ export default function Dashboard() {
       const ringEl = $('#acs-riskRing');
       const deltaEl = $('#acs-riskDelta');
       const CIRC = 351.86;
-      let risk = 67;
-      const render = () => {
+      const render = (risk) => {
         valEl.innerHTML = Math.round(risk) + '<span style="font-size:18px;">%</span>';
         ringEl.setAttribute('stroke-dashoffset', CIRC * (1 - risk / 100));
         const c = risk >= 70 ? 'var(--danger)' : risk >= 50 ? 'var(--warning)' : 'var(--safe)';
         ringEl.setAttribute('stroke', c);
         valEl.style.color = c;
       };
-      render();
-      setIv(() => {
-        risk += (Math.random() * 4 - 2);
-        risk = Math.max(58, Math.min(78, risk));
-        render();
-        const up = Math.random() > 0.42;
-        const amt = (Math.random() * 4 + 1).toFixed(0);
-        deltaEl.innerHTML = (up ? '▲ +' : '▼ −') + amt + '% · last 10 min';
-        deltaEl.style.color = up ? 'var(--warning)' : 'var(--safe)';
-        deltaEl.style.background = up ? 'var(--warning-dim)' : 'var(--safe-dim)';
-      }, 3000);
+      const updateFromLive = () => {
+        const lr = liveRef.current?.global_risk;
+        if (lr != null) {
+          render(lr);
+          const dir = lr >= 50 ? '▲ +' : '▼ −';
+          deltaEl.innerHTML = dir + Math.abs(lr - 50).toFixed(0) + '% · live';
+          deltaEl.style.color = lr >= 50 ? 'var(--warning)' : 'var(--safe)';
+          deltaEl.style.background = lr >= 50 ? 'var(--warning-dim)' : 'var(--safe-dim)';
+        }
+      };
+      updateFromLive();
+      setIv(updateFromLive, 3000);
 
       const supEl = $('#acs-supporters');
-      let sup = 68420;
       setIv(() => {
-        sup += Math.floor(Math.random() * 12);
-        supEl.textContent = sup.toLocaleString('en-US');
+        const sup = liveRef.current?.stats?.supporters_inside;
+        if (sup != null) supEl.textContent = sup.toLocaleString('en-US');
       }, 3500);
     })();
 
@@ -482,10 +518,10 @@ export default function Dashboard() {
           </header>
           ============================================================ */}
 
-          {/* Bandeau contextuel (sans match ni badge LIVE) */}
+          {/* Bandeau contextuel */}
           <div className="glass match-strip">
             <div className="match-info">
-              <div className="meta">AFCON 2025 · Stade Moulay Abdellah, Rabat · Capacité 68 700</div>
+              <div className="meta">{live?.match || 'AFCON 2025'} · {live?.match_status === 'LIVE' ? 'En direct' : live?.match_status || 'En attente'} · Capacité {s?.supporters_inside?.toLocaleString() || '68 700'}</div>
             </div>
           </div>
 
@@ -515,16 +551,16 @@ export default function Dashboard() {
                 <div className="vitals">
                   <div className="vital">
                     <div className="label">Supporters Inside</div>
-                    <div className="big" id="acs-supporters">68,420</div>
+                    <div className="big" id="acs-supporters">{(s?.supporters_inside ?? 68420).toLocaleString('en-US')}</div>
                   </div>
                   <div className="vital">
                     <div className="label">Incidents Prevented</div>
-                    <div className="big green">3 <span className="checkmark">✓</span></div>
+                    <div className="big green">{s?.incidents_prevented ?? 3} <span className="checkmark">✓</span></div>
                   </div>
                   <div className="vital" style={{ gridColumn: '1 / -1' }}>
                     <div className="label">Agents Deployed</div>
-                    <div className="big">1,847 <span className="unit">/ 4,000</span></div>
-                    <div className="bar"><i style={{ width: '46%' }}></i></div>
+                    <div className="big">{(s?.agents_deployed ?? 1847).toLocaleString('en-US')} <span className="unit">/ 4,000</span></div>
+                    <div className="bar"><i style={{ width: `${Math.min(100, ((s?.agents_deployed ?? 1847) / 4000) * 100)}%` }}></i></div>
                   </div>
                 </div>
               </div>
@@ -610,26 +646,27 @@ export default function Dashboard() {
 
               <div className="glass card">
                 <div className="card-head"><span className="label">Field Agents · By Sector</span></div>
-                <div className="agent-row">
-                  <span className="an">Nord</span>
-                  <div className="agent-bar"><i className="bg-safe" style={{ width: '86%', boxShadow: '0 0 8px rgba(31,209,123,0.6)' }}></i></div>
-                  <span className="av">342</span>
-                </div>
-                <div className="agent-row warn">
-                  <span className="an">Est</span>
-                  <div className="agent-bar"><i className="bg-warn" style={{ width: '22%', boxShadow: '0 0 8px rgba(255,159,28,0.6)' }}></i></div>
-                  <span className="av">89</span>
-                </div>
-                <div className="agent-row">
-                  <span className="an">Sud</span>
-                  <div className="agent-bar"><i className="bg-safe" style={{ width: '70%', boxShadow: '0 0 8px rgba(31,209,123,0.6)' }}></i></div>
-                  <span className="av">280</span>
-                </div>
-                <div className="agent-row">
-                  <span className="an">Ouest</span>
-                  <div className="agent-bar"><i className="bg-info" style={{ width: '64%', boxShadow: '0 0 8px rgba(59,158,255,0.6)' }}></i></div>
-                  <span className="av">256</span>
-                </div>
+                {SECTOR_ORDER.filter((s) => sectorAgents[s]).map((sector, i) => {
+                  const count = sectorAgents[sector];
+                  const pct = Math.round((count / maxSector) * 100);
+                  const colors = ['bg-safe', 'bg-warn', 'bg-info', 'bg-safe', 'bg-warn', 'bg-info'];
+                  const shadows = [
+                    '0 0 8px rgba(31,209,123,0.6)',
+                    '0 0 8px rgba(255,159,28,0.6)',
+                    '0 0 8px rgba(59,158,255,0.6)',
+                    '0 0 8px rgba(31,209,123,0.6)',
+                    '0 0 8px rgba(255,159,28,0.6)',
+                    '0 0 8px rgba(59,158,255,0.6)',
+                  ];
+                  const clsIdx = i % colors.length;
+                  return (
+                    <div key={sector} className={'agent-row' + (colors[clsIdx] === 'bg-warn' ? ' warn' : '')}>
+                      <span className="an">{sector}</span>
+                      <div className="agent-bar"><i className={colors[clsIdx]} style={{ width: pct + '%', boxShadow: shadows[clsIdx] }}></i></div>
+                      <span className="av">{count}</span>
+                    </div>
+                  );
+                })}
               </div>
             </section>
           </main>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from '../../lib/icons.jsx';
-import { exportMatchPDF } from '../../lib/api.js';
+import { fetchMatches, fetchMatchSummary, exportMatchPDF } from '../../lib/api.js';
 
 export default function MatchReport() {
   const [matches, setMatches] = useState([]);
@@ -9,23 +9,19 @@ export default function MatchReport() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/match/list')
-      .then((r) => r.json())
-      .then((list) => {
-        setMatches(list);
-        if (list.length > 0 && !selectedId) {
-          setSelectedId(String(list[0].id));
-        }
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    fetchMatches().then((list) => {
+      setMatches(list);
+      if (list.length > 0 && !selectedId) {
+        setSelectedId(String(list[0].id));
+      }
+      setLoading(false);
+    }).catch(() => setLoading(false));
   }, []);
 
   useEffect(() => {
     if (!selectedId) return;
     setLoading(true);
-    fetch(`/api/report/match-summary/${selectedId}`)
-      .then((r) => r.json())
+    fetchMatchSummary(selectedId)
       .then((d) => { setReport(d); setLoading(false); })
       .catch(() => setLoading(false));
   }, [selectedId]);
