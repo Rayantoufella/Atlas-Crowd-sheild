@@ -1,3 +1,4 @@
+import os
 import cv2
 
 DETECTION_MODEL = "yolov8n.pt"
@@ -6,7 +7,7 @@ CONF_THRESHOLD = 0.20
 IOU_THRESHOLD = 0.30
 INPUT_SIZE = 416
 
-TRACKER_CONFIG = "bytetrack.yaml"
+TRACKER_CONFIG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pipeline", "bytetrack.yaml")
 TRACK_HISTORY_LEN = 6
 TARGET_FPS = 30
 

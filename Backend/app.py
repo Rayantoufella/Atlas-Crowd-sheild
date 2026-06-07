@@ -46,14 +46,18 @@ def _seed_if_empty():
     db.session.commit()
 
 
-with app.app_context():
-    conn = db.engine.connect()
-    conn.execute(db.text("DROP TABLE IF EXISTS agent CASCADE"))
-    conn.execute(db.text("DROP TABLE IF EXISTS camera CASCADE"))
-    conn.commit()
-    conn.close()
-    db.create_all()
-    _seed_if_empty()
+try:
+    with app.app_context():
+        conn = db.engine.connect()
+        conn.execute(db.text("DROP TABLE IF EXISTS agent CASCADE"))
+        conn.execute(db.text("DROP TABLE IF EXISTS camera CASCADE"))
+        conn.commit()
+        conn.close()
+        db.create_all()
+        _seed_if_empty()
+except Exception as e:
+    print(f"WARNING: Database unavailable — {e}")
+    print("The app will start but DB-dependent features will not work.")
 
 from routes.match import match_bp
 from routes.zones import zones_bp
