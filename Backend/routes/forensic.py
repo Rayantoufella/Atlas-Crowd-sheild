@@ -57,10 +57,18 @@ ALLOWED_EXT = {".mp4", ".avi", ".mov", ".mkv", ".webm"}
 MAX_SIZE_MB = 500
 MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024
 
-VIDEO_DEFAULT = r"C:\Users\jdira\Downloads\WhatsApp Video 2026-06-06 at 17.09.05.mp4"
-VIDEO_NORMAL = r"C:\Users\jdira\Downloads\normal.mp4"
-CAMERA_VIDEOS = {i: VIDEO_DEFAULT for i in range(24)}
-CAMERA_VIDEOS[3] = VIDEO_NORMAL
+# Vidéos locales embarquées dans le projet (dossier Backend/video).
+VIDEO_DIR = os.path.join(BASE_DIR, "video")
+VIDEO_DANGER = os.path.join(VIDEO_DIR, "danger.mp4")
+VIDEO_NORMAL = os.path.join(VIDEO_DIR, "normal.mp4")
+
+# Caméras du poste critique (Porte 3 Est) → vidéo de danger.
+# Toutes les autres caméras → vidéo normale.
+DANGER_CAMERAS = {7, 8, 9}
+CAMERA_VIDEOS = {
+    i: (VIDEO_DANGER if i in DANGER_CAMERAS else VIDEO_NORMAL)
+    for i in range(24)
+}
 
 
 @forensic_bp.route("/api/forensic/auto-analyze", methods=["POST"])

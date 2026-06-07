@@ -432,3 +432,32 @@ Visit https://reactjs.org/link/error-boundaries to learn more about error bounda
 [2m00:13:47[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/StadiumMap.jsx[22m
 [2m00:25:59[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Dashboard.jsx[22m
 [2m00:26:05[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Dashboard.jsx[22m
+[2m01:47:33[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Admin.jsx[22m
+[2m01:47:33[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Ops.jsx, /src/pages/admin/Matchs.jsx, /src/pages/admin/Cameras.jsx, /src/pages/admin/Agents.jsx, /src/pages/admin/Portes.jsx[22m
+[2m01:47:33[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Ops.jsx[22m
+[2m01:47:33[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/admin/Agents.jsx[22m
+[2m01:47:33[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Dashboard.jsx[22m
+[2m01:47:33[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/admin/Cameras.jsx[22m
+[2m01:47:33[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/admin/Matchs.jsx[22m
+[2m01:47:33[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/admin/Portes.jsx[22m
+[2m01:47:46[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Dashboard.jsx[22m
+[2m02:14:57[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Forensic.jsx[22m
+[2m02:15:07[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Forensic.jsx[22m
+[2m02:15:32[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Ops.jsx, /src/pages/admin/Matchs.jsx, /src/pages/admin/Cameras.jsx, /src/pages/admin/Agents.jsx, /src/pages/admin/Portes.jsx[22m
+[2m02:15:42[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Dashboard.jsx[22m
+[2m04:19:10[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Dashboard.jsx[22m
+[2m04:19:10[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Forensic.jsx[22m
+[2m04:19:10[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Ops.jsx, /src/pages/admin/Matchs.jsx, /src/pages/admin/Cameras.jsx, /src/pages/admin/Agents.jsx, /src/pages/admin/Portes.jsx[22m
+[2m04:19:16[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Dashboard.jsx[22m
+[2m04:19:16[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/StadiumMap.jsx[22m
+[2m04:19:16[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/admin/Matchs.jsx[22m
+[2m04:19:16[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Forensic.jsx[22m
+[2m05:28:23[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/StadiumMap.jsx[22m
+[2m05:28:23[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Ops.jsx, /src/pages/admin/Matchs.jsx, /src/pages/admin/Cameras.jsx, /src/pages/admin/Agents.jsx, /src/pages/admin/Portes.jsx[22m
+[2m05:28:23[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Dashboard.jsx[22m
+[2m05:28:23[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/admin/Parametres.jsx[22m
+[2m05:28:23[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.jsx[22m
+[2m05:34:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Ops.jsx, /src/pages/admin/Matchs.jsx, /src/pages/admin/Cameras.jsx, /src/pages/admin/Agents.jsx, /src/pages/admin/Portes.jsx[22m
+[2m05:34:28[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Ops.jsx, /src/pages/admin/Matchs.jsx, /src/pages/admin/Cameras.jsx, /src/pages/admin/Agents.jsx, /src/pages/admin/Portes.jsx[22m
+[2m05:41:13[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/StadiumMap.jsx[22m
+[2m05:41:21[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/StadiumMap.jsx[22m

@@ -1,5 +1,5 @@
 import API_BASE from './config.js';
-import { STADIUMS } from './data.js';
+import { STADIUMS, SEED_CAMERAS, SEED_AGENTS, SEED_EVENTS } from './data.js';
 
 async function get(path) {
   const res = await fetch(`${API_BASE}${path}`);
@@ -133,16 +133,34 @@ export async function startDemo() {
   return post('/start-demo', {});
 }
 
+// These three feed the dashboard panels. If the backend is unreachable or
+// returns an empty payload, fall back to the seed mock data so the UI is
+// never blank.
 export async function fetchCameras() {
-  return get('/api/camera/list');
+  try {
+    const data = await get('/api/camera/list');
+    return Array.isArray(data) && data.length ? data : SEED_CAMERAS;
+  } catch {
+    return SEED_CAMERAS;
+  }
 }
 
 export async function fetchAgents() {
-  return get('/api/agent/list');
+  try {
+    const data = await get('/api/agent/list');
+    return Array.isArray(data) && data.length ? data : SEED_AGENTS;
+  } catch {
+    return SEED_AGENTS;
+  }
 }
 
 export async function fetchEvents() {
-  return get('/api/event/latest');
+  try {
+    const data = await get('/api/event/latest');
+    return Array.isArray(data) && data.length ? data : SEED_EVENTS;
+  } catch {
+    return SEED_EVENTS;
+  }
 }
 
 

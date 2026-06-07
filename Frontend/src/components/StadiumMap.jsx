@@ -105,6 +105,14 @@ const CSS = `
 .sm-list .li .pc { font: 700 13px "JetBrains Mono", monospace; text-align: right; }
 .sm-list .li .st { font-size: 9.5px; font-weight: 800; letter-spacing: 0.06em; text-align: right; }
 /* sm-crit-halo is used on the SVG halo ring for critical zones */
+
+/* detection button inside the gate detail card */
+.sm-detect-btn { display: flex; align-items: center; justify-content: center; gap: 9px;
+  width: 100%; margin-top: 16px; padding: 13px 16px; border: none; border-radius: 11px;
+  color: #fff; font: 800 12.5px var(--sans, sans-serif); letter-spacing: 0.06em;
+  text-transform: uppercase; cursor: pointer; transition: transform 0.14s, filter 0.14s; }
+.sm-detect-btn:hover { transform: translateY(-1px); filter: brightness(1.08); }
+.sm-detect-btn:active { transform: translateY(0); }
 `;
 
 const C = {
@@ -396,6 +404,22 @@ function GateDetail({ s, onCameraClick }) {
         <div className="sm-stat" onClick={() => onCameraClick?.(s.n - 1)} style={{ cursor: 'pointer' }}><div className="k">Cameras</div><div className="v">{s.cams} online</div></div>
         <div className="sm-stat"><div className="k">Sector</div><div className="v">{s.id}</div></div>
       </div>
+      {/* Bouton détection : ouvre la vidéo de ce poste et lance l'analyse
+          forensic automatiquement (route /forensic/cam-N). */}
+      <button
+        className="sm-detect-btn"
+        style={{
+          background: `linear-gradient(135deg, ${s.color}, color-mix(in oklab, ${s.color} 70%, #000))`,
+          boxShadow: `0 4px 18px ${s.color}55`,
+        }}
+        onClick={() => onCameraClick?.((s.cameraIndices && s.cameraIndices[0]) ?? (s.n - 1))}
+      >
+        <svg viewBox="0 0 20 20" width="16" height="16" fill="none" aria-hidden="true">
+          <rect x="2" y="5" width="11" height="10" rx="2" stroke="#fff" strokeWidth="1.6" />
+          <path d="M13 8 L18 5.5 V14.5 L13 12 Z" fill="#fff" />
+        </svg>
+        {s.critical ? 'DÉTECTION — INSPECTER LA VIDÉO' : 'Détection vidéo de ce poste'}
+      </button>
     </div>
   );
 }
