@@ -2,6 +2,7 @@ import os
 import uuid
 import threading
 import json
+import shutil
 from collections import deque
 from flask import Blueprint, jsonify, request, send_from_directory, Response, stream_with_context
 
@@ -55,6 +56,68 @@ def push_stream_frame(job_id, jpeg_bytes):
 ALLOWED_EXT = {".mp4", ".avi", ".mov", ".mkv", ".webm"}
 MAX_SIZE_MB = 500
 MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024
+
+CAMERA_VIDEOS = {
+    0: r"C:\Users\jdira\Downloads\WhatsApp Video 2026-06-06 at 17.09.05.mp4",
+}
+
+
+@forensic_bp.route("/api/forensic/auto-analyze", methods=["POST"])
+def auto_analyze():
+    data = request.get_json()
+    camera_id = data.get("camera_id")
+
+    video_path = CAMERA_VIDEOS.get(camera_id)
+    if not video_path or not os.path.exists(video_path):
+        return jsonify({"error": "Video not found for this camera"}), 404
+
+    ext = os.path.splitext(video_path)[1].lower()
+    if ext not in ALLOWED_EXT:
+        return jsonify({"error": f"Unsupported format {ext}"}), 400
+
+    job_id = str(uuid.uuid4())[:8]
+    safe_name = f"{job_id}{ext}"
+    save_path = os.path.join(UPLOAD_DIR, safe_name)
+    shutil.copy2(video_path, save_path)
+
+    with data_lock:
+        stream_buffers[job_id] = deque(maxlen=5)
+        stream_events[job_id] = threading.Event()
+
+    job_data = {
+        "id": job_id,
+        "filename": os.path.basename(video_path),
+        "saved_as": safe_name,
+        "status": "queued",
+        "progress": 0,
+        "frame": 0,
+        "total_frames": 0,
+        "detections_count": 0,
+        "detections": [],
+    }
+
+    with data_lock:
+        jobs_dict[job_id] = job_data
+        persist_all()
+
+    def run():
+        try:
+            from analyzer.processor import process_video
+            process_video(save_path, job_id, update_job, frame_callback=push_stream_frame)
+        except Exception as e:
+            with data_lock:
+                if job_id in jobs_dict:
+                    update_job(job_id, {"status": "error", "error": str(e)})
+        finally:
+            with data_lock:
+                stream_events.pop(job_id, None)
+                stream_buffers.pop(job_id, None)
+
+    thread = threading.Thread(target=run, daemon=True)
+    thread.start()
+
+    return jsonify({"job_id": job_id, "status": "queued"}), 202
+
 
 @forensic_bp.route("/api/forensic/upload", methods=["POST"])
 def upload_video():

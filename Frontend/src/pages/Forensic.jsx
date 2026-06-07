@@ -26,6 +26,23 @@ export default function Forensic() {
 
   const inputRef = useRef(null);
   const statusRef = useRef(null);
+  const autoStartedRef = useRef(false);
+
+  useEffect(() => {
+    if (!cameraId || jobId || autoStartedRef.current) return;
+    const camNum = parseInt(cameraId.replace('cam-', ''), 10);
+    if (isNaN(camNum)) return;
+    autoStartedRef.current = true;
+    setUploading(true);
+    fetch(`${API_BASE}/api/forensic/auto-analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ camera_id: camNum }),
+    }).then(r => r.json()).then(data => {
+      if (data.job_id) setJobId(data.job_id);
+      else setError(data.error || 'Auto-analyze failed');
+    }).catch(() => setError('Failed to start auto-analysis'));
+  }, [cameraId, jobId]);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/forensic/jobs`)
@@ -304,12 +321,15 @@ export default function Forensic() {
         {cameraId && (
           <div style={{
             marginTop: 12, padding: '10px 16px', borderRadius: 10,
-            background: 'rgba(59,158,255,0.12)', border: '1px solid rgba(59,158,255,0.25)',
+            background: isProcessing ? 'rgba(239,68,68,0.12)' : 'rgba(59,158,255,0.12)',
+            border: isProcessing ? '1px solid rgba(239,68,68,0.25)' : '1px solid rgba(59,158,255,0.25)',
             display: 'flex', alignItems: 'center', gap: 10, fontSize: 13,
           }}>
             <Icon.Camera size={16} />
             <span style={{ fontWeight: 600 }}>Camera {cameraId.replace('cam-', '')}</span>
-            <span style={{ color: 'var(--fg-2)' }}>— drop or upload footage from this camera for forensic analysis</span>
+            <span style={{ color: 'var(--fg-2)' }}>
+              {isProcessing ? '— analyzing footage...' : '— footage loaded, analysis starting...'}
+            </span>
           </div>
         )}
       </div>
