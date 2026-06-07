@@ -43,14 +43,14 @@ const CSS = `
 }
 .acs *, .acs *::before, .acs *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* Fluid layout: the dashboard fills the area below the shared NavBar (~66px)
-   and the components reflow responsively — no fixed-scale snapshot.
-   min-height (not a fixed height) lets the page scroll instead of clipping
-   the bottom of the columns on short viewports. */
+/* Fluid layout: the dashboard fills exactly the area below the shared
+   NavBar (~66px) and the components reflow responsively — no scroll.
+   Fixed height + overflow:hidden keeps everything within the viewport;
+   the middle row (1fr) absorbs the remaining space and compresses. */
 .acs #acs-stage { display: block; }
 .acs #acs-canvas {
-  width: 100%; min-height: calc(100vh - 66px);
-  display: grid; grid-template-rows: 34px minmax(420px, 1fr) 44px;
+  width: 100%; height: calc(100vh - 66px); overflow: hidden;
+  display: grid; grid-template-rows: 34px 1fr 44px;
   padding: 16px; gap: 14px;
 }
 @media (max-width: 1320px) {

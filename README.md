@@ -6,13 +6,13 @@ AI-powered stadium security & crowd management platform. Real-time risk monitori
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| Frontend | React 18, Vite 8, vanilla CSS, custom hash router, inline SVG icons/charts |
-| Backend | Flask (Python), Flask-SQLAlchemy, Flask-CORS |
-| Database | PostgreSQL |
+| Layer           | Technology |
+|-----------------|------------|
+| Frontend        | React 18, Vite 8, vanilla CSS, custom hash router, inline SVG icons/charts |
+| Backend         | Flask (Python), Flask-SQLAlchemy, Flask-CORS |
+| Database        | PostgreSQL |
 | Computer Vision | YOLOv8n (Ultralytics), ByteTrack, OpenCV |
-| Other | ReportLab (PDF), qrcode[pil] |
+| Other           | ReportLab (PDF), qrcode[pil] |
 
 ---
 
