@@ -6,7 +6,7 @@
 // All design markup/logic lives here; styles are scoped under `.acs`.
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import StadiumMap from '../components/StadiumMap';
-import { fetchLiveState, fetchCameras, fetchAgents, fetchEvents, startDemo, fetchSettings } from '../lib/api.js';
+import { fetchLiveState, fetchCameras, fetchAgents, fetchEvents, fetchSettings } from '../lib/api.js';
 
 const CSS = `
 .acs {
@@ -280,16 +280,12 @@ export default function Dashboard() {
   const [cameras, setCameras] = useState([]);
   const [agents, setAgents] = useState([]);
   const [events, setEvents] = useState([]);
-  const [demoLoading, setDemoLoading] = useState(false);
-  const [demoStarted, setDemoStarted] = useState(false);
   const [riskThreshold, setRiskThreshold] = useState(80);
   const [warnThreshold, setWarnThreshold] = useState(65);
 
   /* refs so timer callbacks can always read the latest values */
   const liveRef = useRef(live);
   liveRef.current = live;
-  const eventsRef = useRef(events);
-  eventsRef.current = events;
   const thresholdsRef = useRef({ riskThreshold, warnThreshold });
   thresholdsRef.current = { riskThreshold, warnThreshold };
 
@@ -375,55 +371,6 @@ export default function Dashboard() {
     /* ---- stadium map is now the self-contained <StadiumMap /> component ---- */
 
     /* ---- alert feed ---- */
-    const COLORS = { danger: 'var(--danger)', warning: 'var(--warning)', safe: 'var(--safe)', info: 'var(--info)' };
-    const TAGCOLOR = { danger: 'c-crit', warning: 'c-warn', safe: 'c-safe', info: 'c-info' };
-    const TAG_MAP = { CRIT: 'CRITICAL', WARN: 'RISING', OK: 'NORMAL' };
-    const CLS_MAP = { CRIT: 'danger', WARN: 'warning', OK: 'safe' };
-    const feedEl = $('#acs-feed');
-    feedEl.innerHTML = '';
-    const nowStamp = () => {
-      const d = new Date();
-      const p = (n) => String(n).padStart(2, '0');
-      return p(d.getHours()) + ':' + p(d.getMinutes());
-    };
-    const addAlert = ({ time, tag, txt, cls }) => {
-      const row = document.createElement('div');
-      row.className = 'feed-row';
-      row.innerHTML = `
-        <span class="feed-time">${time || nowStamp()}</span>
-        <span class="feed-stripe" style="background:${COLORS[cls]}; box-shadow:0 0 8px ${COLORS[cls]}33;"></span>
-        <span class="feed-txt"><span class="ftag ${TAGCOLOR[cls]}">${tag}</span>${txt}</span>`;
-      feedEl.prepend(row);
-      while (feedEl.children.length > 3) feedEl.removeChild(feedEl.lastChild);
-    };
-    /* seed and stream from events */
-    const seedEvents = () => {
-      const evts = eventsRef.current;
-      feedEl.innerHTML = '';
-      evts.slice(0, 3).forEach((e) => {
-        addAlert({
-          time: e.time || nowStamp(),
-          tag: TAG_MAP[e.level] || e.level,
-          txt: `<b>${e.zone || ''}</b> ${e.message}`,
-          cls: CLS_MAP[e.level] || 'info',
-        });
-      });
-    };
-    seedEvents();
-    let si = 0;
-    setIv(() => {
-      const evts = eventsRef.current;
-      if (evts.length === 0) return;
-      const e = evts[si % evts.length];
-      addAlert({
-        time: e.time || nowStamp(),
-        tag: TAG_MAP[e.level] || e.level,
-        txt: `<b>${e.zone || ''}</b> ${e.message}`,
-        cls: CLS_MAP[e.level] || 'info',
-      });
-      si++;
-    }, 8000);
-    /* re-seed when events ref changes (observed via interval above) */
 
     /* ---- global risk ---- */
     (function () {
@@ -514,6 +461,32 @@ export default function Dashboard() {
     };
   }, []);
 
+  /* ---- dynamic alert feed ---- */
+  useEffect(() => {
+    const feedEl = document.getElementById('acs-feed');
+    if (!feedEl) return;
+    const COLORS = { danger: 'var(--danger)', warning: 'var(--warning)', safe: 'var(--safe)', info: 'var(--info)' };
+    const TAGCOLOR = { danger: 'c-crit', warn: 'c-warn', safe: 'c-safe', info: 'c-info' };
+    const TAG_MAP = { CRIT: 'CRITICAL', WARN: 'RISING', OK: 'NORMAL' };
+    const CLS_MAP = { CRIT: 'danger', WARN: 'warning', OK: 'safe' };
+    const nowStamp = () => {
+      const d = new Date();
+      const p = (n) => String(n).padStart(2, '0');
+      return p(d.getHours()) + ':' + p(d.getMinutes());
+    };
+    feedEl.innerHTML = '';
+    events.slice(0, 5).forEach((e) => {
+      const cls = CLS_MAP[e.level] || 'info';
+      const row = document.createElement('div');
+      row.className = 'feed-row';
+      row.innerHTML = `
+        <span class="feed-time">${e.time || nowStamp()}</span>
+        <span class="feed-stripe" style="background:${COLORS[cls]}; box-shadow:0 0 8px ${COLORS[cls]}33;"></span>
+        <span class="feed-txt"><span class="ftag ${TAGCOLOR[cls]}">${TAG_MAP[e.level] || e.level}</span><b>${e.zone || ''}</b> ${e.message}</span>`;
+      feedEl.appendChild(row);
+    });
+  }, [events]);
+
   return (
     <div className="acs" ref={rootRef}>
       <style>{CSS}</style>
@@ -555,26 +528,6 @@ export default function Dashboard() {
           <div className="glass match-strip">
             <div className="match-info">
               <div className="meta">{live?.match || 'AFCON 2025'} · {live?.match_status === 'LIVE' ? 'En direct' : live?.match_status || 'En attente'} · Capacité {s?.supporters_inside?.toLocaleString() || '68 700'}</div>
-            </div>
-            <div style={{ marginLeft: 'auto' }}>
-              <button
-                className={'btn' + (demoStarted ? ' btn-primary done' : ' btn-ghost')}
-                disabled={demoLoading}
-                onClick={async () => {
-                  setDemoLoading(true);
-                  try {
-                    await startDemo();
-                    setDemoStarted(true);
-                  } catch (e) {
-                    console.error('Demo failed:', e);
-                  } finally {
-                    setDemoLoading(false);
-                  }
-                }}
-                style={{ fontSize: 11.5, padding: '7px 14px' }}
-              >
-                {demoLoading ? 'Starting…' : demoStarted ? '✓ Demo Running' : '▶ Start Demo'}
-              </button>
             </div>
           </div>
 

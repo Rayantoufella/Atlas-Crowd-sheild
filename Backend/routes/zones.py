@@ -55,7 +55,7 @@ def zones_live():
         state["minute"] = 0 if not live_match else int((now - live_match.match_date).total_seconds() // 60)
 
     zone_risks = [z.get("risk", 0) for z in state.get("zones", [])]
-    state["global_risk"] = int(sum(zone_risks) / len(zone_risks)) if zone_risks else 28
+    state["global_risk"] = int(max(zone_risks)) if zone_risks else 28
     state.setdefault("alert", {"active": False})
 
     cameras_total = Camera.query.count()
