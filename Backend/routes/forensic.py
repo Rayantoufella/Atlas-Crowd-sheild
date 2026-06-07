@@ -60,13 +60,18 @@ MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024
 # Vidéos locales embarquées dans le projet (dossier Backend/video).
 VIDEO_DIR = os.path.join(BASE_DIR, "video")
 VIDEO_DANGER = os.path.join(VIDEO_DIR, "danger.mp4")
+VIDEO_WARNING = os.path.join(VIDEO_DIR, "warning.mp4")
 VIDEO_NORMAL = os.path.join(VIDEO_DIR, "normal.mp4")
 
 # Caméras du poste critique (Porte 3 Est) → vidéo de danger.
-# Toutes les autres caméras → vidéo normale.
+# Caméras des zones warning (G4, G6) → vidéo warning.
+# Toutes les autres → vidéo normale.
 DANGER_CAMERAS = {7, 8, 9}
+WARNING_CAMERAS = {11, 12, 13, 19, 20, 21}
 CAMERA_VIDEOS = {
-    i: (VIDEO_DANGER if i in DANGER_CAMERAS else VIDEO_NORMAL)
+    i: (VIDEO_DANGER if i in DANGER_CAMERAS else
+        VIDEO_WARNING if i in WARNING_CAMERAS else
+        VIDEO_NORMAL)
     for i in range(24)
 }
 

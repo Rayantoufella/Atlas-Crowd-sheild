@@ -6,9 +6,9 @@ SETTINGS_PATH = os.path.join(BASE_DIR, "analyzer", "settings.json")
 
 DEFAULTS = {
     "conf_threshold": 0.20,
-    "weight_velocity": 0.40,
-    "weight_accel": 0.25,
-    "weight_proximity": 0.15,
+    "weight_velocity": 0.25,
+    "weight_accel": 0.20,
+    "weight_proximity": 0.35,
     "weight_object": 0.20,
     "thresh_low": 0.35,
     "thresh_medium": 0.50,

@@ -1,9 +1,9 @@
 {
   "conf_threshold": 0.2,
-  "weight_velocity": 0.4,
-  "weight_accel": 0.25,
-  "weight_proximity": 0.15,
-  "weight_object": 0.2,
+  "weight_velocity": 0.25,
+  "weight_accel": 0.20,
+  "weight_proximity": 0.35,
+  "weight_object": 0.20,
   "thresh_low": 0.35,
   "thresh_medium": 0.50,
   "thresh_high": 0.65,
