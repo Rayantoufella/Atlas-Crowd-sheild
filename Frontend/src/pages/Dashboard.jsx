@@ -670,16 +670,6 @@ export default function Dashboard() {
               </div>
             </section>
           </main>
-
-          {/* FOOTER */}
-          <footer className="glass">
-            <span className="tagline">"Securing the future of Moroccan football."</span>
-            <div className="pills">
-              <span className="pill green"><i></i>AI Active</span>
-              <span className="pill green"><i></i>WebSocket Connected</span>
-              <span className="pill orange"><i></i>Cameras {camerasActive}/{camerasTotal}</span>
-            </div>
-          </footer>
         </div>
       </div>
 
