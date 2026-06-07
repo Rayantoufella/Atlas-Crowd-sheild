@@ -225,10 +225,7 @@ def get_report(match_id):
 
 # Démarre le moteur d'alertes en arrière-plan au niveau module, afin qu'il
 # tourne aussi sous gunicorn (prod Render), pas seulement avec `python app.py`.
-_alert_thread = threading.Thread(target=_alert_engine, daemon=True)
-_alert_thread.start()
-
-
 if __name__ == "__main__":
-    # Dev local uniquement. En prod, c'est gunicorn qui sert l'app (voir Procfile).
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    _thread = threading.Thread(target=_alert_engine, daemon=True)
+    _thread.start()
+    app.run(debug=True, port=5050)
