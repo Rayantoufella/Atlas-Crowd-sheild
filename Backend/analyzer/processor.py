@@ -7,6 +7,7 @@ from .pipeline.behavior import BehaviorEngine
 from .pipeline.alert import AlertEngine
 from .pipeline.renderer import Renderer
 from .runtime_config import get as cfg
+from .shared_state import update as update_algo_state
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SNAPSHOT_DIR = os.path.join(BASE_DIR, "uploads", "snapshots")
@@ -34,6 +35,16 @@ def process_video(video_path, job_id, progress_callback, frame_callback=None):
         zone_state = alert.classify(person_states, idx)
 
         annotated = renderer.draw(frame, person_states, zone_state, detector.last_objects)
+
+        update_algo_state({
+            "zone_label": zone_state.label,
+            "global_risk": round(zone_state.zone_score * 100),
+            "high_risk_count": zone_state.high_risk_count,
+            "approach_pairs_count": zone_state.approach_pairs_count,
+            "group_count": zone_state.group_count,
+            "approach_velocity_max": round(zone_state.approach_velocity_max, 2),
+            "min_ttc": round(zone_state.min_ttc, 1),
+        })
 
         for ps in person_states:
             if ps.risk_tier not in ("high", "critical"):
@@ -73,6 +84,9 @@ def process_video(video_path, job_id, progress_callback, frame_callback=None):
                         "velocity": round(ps.signals.velocity, 2),
                         "acceleration": round(ps.signals.acceleration, 2),
                         "proximity": ps.signals.proximity_count,
+                        "approach_velocity": round(ps.signals.approach_velocity, 2),
+                        "time_to_collision": round(ps.signals.time_to_collision, 1),
+                        "group_size": ps.signals.group_size,
                     },
                 })
 

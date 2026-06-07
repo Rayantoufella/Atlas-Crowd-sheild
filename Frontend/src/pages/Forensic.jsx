@@ -198,6 +198,36 @@ export default function Forensic() {
           <div className="fr" style={{ fontSize: 10, color: 'var(--fg-3)', marginTop: 2 }}>
             T+{formatTime(d.timestamp)}
           </div>
+          {d.signals && (d.signals.approach_velocity > 0 || d.signals.group_size >= 3) && (
+            <div style={{
+              display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap',
+            }}>
+              {d.signals.approach_velocity > 0 && (
+                <span style={{
+                  fontSize: 9, padding: '1px 5px', borderRadius: 4,
+                  background: 'rgba(255,159,28,0.15)', color: '#FF9F1C',
+                }}>
+                  A:{d.signals.approach_velocity}
+                </span>
+              )}
+              {d.signals.time_to_collision < 10 && (
+                <span style={{
+                  fontSize: 9, padding: '1px 5px', borderRadius: 4,
+                  background: 'rgba(255,59,71,0.15)', color: '#FF3B47',
+                }}>
+                  TTC:{d.signals.time_to_collision}s
+                </span>
+              )}
+              {d.signals.group_size >= 3 && (
+                <span style={{
+                  fontSize: 9, padding: '1px 5px', borderRadius: 4,
+                  background: 'rgba(59,158,255,0.15)', color: '#3B9EFF',
+                }}>
+                  G:{d.signals.group_size}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -285,6 +315,34 @@ export default function Forensic() {
               {lightboxIdx + 1} / {allDetections.length}
             </span>
           </div>
+          {d.signals && (d.signals.approach_velocity > 0 || d.signals.group_size >= 3 || d.signals.time_to_collision < 10) && (
+            <div style={{
+              display: 'flex', gap: 8, marginTop: 8,
+              padding: '6px 12px', borderRadius: 8,
+              background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(8px)',
+            }}>
+              {d.signals.approach_velocity > 0 && (
+                <span style={{ fontSize: 11, color: '#FF9F1C' }}>
+                  Approach v: {d.signals.approach_velocity}
+                </span>
+              )}
+              {d.signals.time_to_collision < 10 && (
+                <span style={{ fontSize: 11, color: '#FF3B47', fontWeight: 700 }}>
+                  TTC: {d.signals.time_to_collision}s
+                </span>
+              )}
+              {d.signals.group_size >= 3 && (
+                <span style={{ fontSize: 11, color: '#3B9EFF' }}>
+                  Group: {d.signals.group_size}
+                </span>
+              )}
+              {d.signals.proximity > 0 && (
+                <span style={{ fontSize: 11, color: '#94a3b8' }}>
+                  Near: {d.signals.proximity}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );

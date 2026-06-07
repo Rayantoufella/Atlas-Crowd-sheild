@@ -80,6 +80,11 @@ export async function fetchLiveState() {
     zones,
     zoneRisks,
     alert: data.alert || { active: false },
+    zone_label: data.zone_label || 'CALM',
+    approach_pairs_count: data.approach_pairs_count || 0,
+    group_count: data.group_count || 0,
+    approach_velocity_max: data.approach_velocity_max || 0,
+    min_ttc: data.min_ttc || 999,
     stats: data.stats || {
       supporters_inside: 0,
       agents_deployed: 0,

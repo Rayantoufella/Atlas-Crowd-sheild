@@ -678,6 +678,26 @@ export default function Dashboard() {
               <span className="pill green"><i></i>AI Active</span>
               <span className="pill green"><i></i>WebSocket Connected</span>
               <span className="pill orange"><i></i>Cameras {camerasActive}/{camerasTotal}</span>
+              {live?.zone_label && (
+                <span className={`pill ${live.zone_label === 'CRITICAL' ? 'orange' : 'green'}`}>
+                  <i></i>{live.zone_label}
+                </span>
+              )}
+              {live?.approach_pairs_count > 0 && (
+                <span className="pill orange">
+                  <i></i>App:{live.approach_pairs_count}
+                </span>
+              )}
+              {live?.min_ttc < 10 && (
+                <span className="pill orange">
+                  <i></i>TTC:{live.min_ttc}s
+                </span>
+              )}
+              {live?.group_count > 0 && (
+                <span className="pill green">
+                  <i></i>G:{live.group_count}
+                </span>
+              )}
             </div>
           </footer>
         </div>

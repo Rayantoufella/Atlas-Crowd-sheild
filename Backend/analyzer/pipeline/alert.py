@@ -1,4 +1,5 @@
 from collections import deque, Counter
+import math
 import numpy as np
 from ..config import ZONE_WEIGHT_MAX, ZONE_WEIGHT_MEAN, ZONE_TOP_K
 from ..runtime_config import get as cfg
@@ -59,11 +60,30 @@ class AlertEngine:
         self.score_log.append(smoothed_score)
         high_risk_count = sum(1 for p in person_states if p.risk_score >= 0.45)
 
+        approach_pairs_count = 0
+        approach_v_max = 0.0
+        min_ttc = 999.0
+        approach_pairs_list = []
+        unique_groups = set()
+        for p in person_states:
+            if p.signals.approach_velocity > 0:
+                approach_pairs_count += 1
+            if p.signals.approach_velocity > approach_v_max:
+                approach_v_max = p.signals.approach_velocity
+            if p.signals.time_to_collision < min_ttc:
+                min_ttc = p.signals.time_to_collision
+            if p.group_id >= 0:
+                unique_groups.add(p.group_id)
+
         return ZoneState(
             label=self._current_label,
             zone_score=smoothed_score,
             high_risk_count=high_risk_count,
             frame_index=frame_index,
+            approach_pairs_count=approach_pairs_count,
+            group_count=len(unique_groups),
+            approach_velocity_max=approach_v_max,
+            min_ttc=min_ttc,
         )
 
     def get_score_log(self) -> list[float]:

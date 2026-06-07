@@ -5,10 +5,9 @@ from models.match import Match
 from models.zone import Zone
 from models.camera import Camera
 from models.agent import Agent
+from analyzer.shared_state import get as algo_state, update as algo_update_state
 
 zones_bp = Blueprint("zones", __name__)
-
-current_state = None
 
 DEFAULT_ZONES = [
     {"id": "gate_1", "label": "Porte 1 Nord", "risk": 28, "status": "safe", "density": "low"},
@@ -37,10 +36,9 @@ def zones_live():
     upcoming = Match.query.filter(Match.match_date > now).order_by(Match.match_date.asc()).first()
 
     match_obj = live_match or upcoming
-    state = current_state if current_state else {}
+    state = algo_state()
 
-    if not state.get("zones"):
-        state["zones"] = DEFAULT_ZONES
+    state.setdefault("zones", DEFAULT_ZONES)
 
     state["timestamp"] = now.isoformat() + "Z"
 
@@ -70,6 +68,22 @@ def zones_live():
     })
 
     return jsonify(state)
+
+
+@zones_bp.route("/api/zones/algo-update", methods=["POST"])
+def algo_update():
+    """Endpoint appele par le pipeline d'analyse pour pousser les metriques temps reel."""
+    data = request.get_json(force=True)
+    algo_update_state({
+        "zone_label": data.get("zone_label", "CALM"),
+        "global_risk": round(data.get("zone_score", 0.0) * 100),
+        "high_risk_count": data.get("high_risk_count", 0),
+        "approach_pairs_count": data.get("approach_pairs_count", 0),
+        "group_count": data.get("group_count", 0),
+        "approach_velocity_max": round(data.get("approach_velocity_max", 0.0), 2),
+        "min_ttc": round(data.get("min_ttc", 999.0), 1),
+    })
+    return jsonify({"status": "ok"})
 
 
 @zones_bp.route("/api/zones")

@@ -20,7 +20,13 @@ class Renderer:
             bbox = p.bbox
             cv2.rectangle(out, (bbox.x1, bbox.y1), (bbox.x2, bbox.y2), color, BBOX_THICKNESS)
 
-            label_text = f"ID:{p.track_id} {label_map.get(p.risk_tier, p.risk_tier)} {p.risk_score:.2f}"
+            extra = ""
+            if p.signals.approach_velocity > 0:
+                extra = f" A:{p.signals.approach_velocity:.1f}"
+            if p.signals.group_size >= 3:
+                extra += f" G:{p.signals.group_size}"
+
+            label_text = f"ID:{p.track_id} {label_map.get(p.risk_tier, p.risk_tier)} {p.risk_score:.2f}{extra}"
             (lw, lh), _ = cv2.getTextSize(label_text, LABEL_FONT, 0.4, 1)
             ly1 = bbox.y1 - lh - 6
             lx1 = bbox.x1
@@ -59,5 +65,11 @@ class Renderer:
         cv2.putText(out, info_text, (w - iw - 16, text_y), LABEL_FONT, 0.7, (200, 200, 200), 1, cv2.LINE_AA)
 
         cv2.putText(out, f"Frame: {zone_state.frame_index}", (16, text_y), LABEL_FONT, 0.7, (200, 200, 200), 1, cv2.LINE_AA)
+
+        extra_info = f"Approach pairs: {zone_state.approach_pairs_count}  Groups: {zone_state.group_count}"
+        if zone_state.min_ttc < 999:
+            extra_info += f"  Min TTC: {zone_state.min_ttc:.1f}s"
+        (ew, eh), _ = cv2.getTextSize(extra_info, LABEL_FONT, 0.55, 1)
+        cv2.putText(out, extra_info, (16, HUD_HEIGHT_PX + 24), LABEL_FONT, 0.55, (255, 200, 100), 1, cv2.LINE_AA)
 
         return out

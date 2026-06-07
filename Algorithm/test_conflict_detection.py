@@ -58,6 +58,9 @@ class SignalVector:
     pose_anomaly: float
     object_flag: bool
     object_type: str
+    approach_velocity: float = 0.0
+    time_to_collision: float = 999.0
+    group_size: int = 0
 
 @dataclass
 class PersonState:
@@ -66,6 +69,7 @@ class PersonState:
     risk_score: float
     risk_tier: str
     signals: SignalVector
+    group_id: int = -1
 
 # ---------------------------------------------------------------------------
 # 2.  CONFIGURATION (memes valeurs que Backend/analyzer/config.py)
@@ -78,10 +82,20 @@ ACCEL_NORM_FACTOR = 3.0
 PROXIMITY_RADIUS_PX = 100
 PROXIMITY_HIGH = 5
 
-WEIGHT_VELOCITY = 0.40
-WEIGHT_ACCEL = 0.25
+WEIGHT_VELOCITY = 0.30
+WEIGHT_ACCEL = 0.15
 WEIGHT_PROXIMITY = 0.15
-WEIGHT_OBJECT = 0.20
+WEIGHT_OBJECT = 0.10
+WEIGHT_APPROACH = 0.20
+
+APPROACH_LOOKBACK = 3
+APPROACH_V_LOW = 1.5
+APPROACH_V_MED = 2.5
+APPROACH_V_HIGH = 4.0
+APPROACH_NORM_FACTOR = 5.0
+
+GROUP_RADIUS_PX = 80
+GROUP_MIN_SIZE = 3
 
 THRESH_LOW = 0.20
 THRESH_MEDIUM = 0.32
@@ -144,10 +158,74 @@ def _compute_proximity(detection, all_detections):
             count += 1
     return count
 
-def compute_risk_scores(detections, tracks, frame_index):
+def compute_approach_pairs(detections, prev_centroids):
+    """Calcule les paires en approche (approach velocity + TTC)."""
+    pairs = []
+    for i in range(len(detections)):
+        for j in range(i + 1, len(detections)):
+            a, b = detections[i], detections[j]
+            cur_dist = math.hypot(a.bbox.cx - b.bbox.cx, a.bbox.cy - b.bbox.cy)
+            if cur_dist < 5:
+                continue
+            approach_v = 0.0
+            p_a = prev_centroids.get(a.track_id)
+            p_b = prev_centroids.get(b.track_id)
+            if p_a and p_b:
+                prev_dist = math.hypot(p_a[0] - p_b[0], p_a[1] - p_b[1])
+                approach_v = max(0.0, prev_dist - cur_dist)
+            sev = 0
+            if approach_v > APPROACH_V_HIGH and cur_dist < 80:
+                sev = 3
+            elif approach_v > APPROACH_V_MED and cur_dist < 150:
+                sev = 2
+            elif approach_v > APPROACH_V_LOW and cur_dist < 300:
+                sev = 1
+            ttc = cur_dist / approach_v if approach_v > 0.1 else 999.0
+            if sev > 0:
+                pairs.append({
+                    "id_a": a.track_id, "id_b": b.track_id,
+                    "approach_v": approach_v, "dist": cur_dist,
+                    "ttc": ttc, "severity": sev,
+                })
+    return pairs
+
+def detect_groups(detections, radius=GROUP_RADIUS_PX, min_size=GROUP_MIN_SIZE):
+    """Detecte les groupes par clustering hierarchique."""
+    if len(detections) < min_size:
+        return []
+    n = len(detections)
+    assigned = set()
+    groups = []
+    next_gid = 0
+    for i in range(n):
+        if i in assigned:
+            continue
+        cluster = [i]
+        assigned.add(i)
+        changed = True
+        while changed:
+            changed = False
+            for j in range(n):
+                if j in assigned:
+                    continue
+                cj = (detections[j].bbox.cx, detections[j].bbox.cy)
+                for ci_idx in cluster:
+                    ci = detections[ci_idx]
+                    dist = math.hypot(ci.bbox.cx - cj[0], ci.bbox.cy - cj[1])
+                    if dist <= radius:
+                        cluster.append(j)
+                        assigned.add(j)
+                        changed = True
+                        break
+        if len(cluster) >= min_size:
+            groups.append((next_gid, cluster))
+            next_gid += 1
+    return groups
+
+def compute_risk_scores(detections, tracks, frame_index, prev_centroids):
     """Calcule les scores de risque pour chaque detection (copie du BehaviorEngine)."""
     if not detections:
-        return []
+        return [], []
 
     for det in detections:
         tid = det.track_id
@@ -160,6 +238,14 @@ def compute_risk_scores(detections, tracks, frame_index):
     for tid in stale:
         del tracks[tid]
 
+    approach_pairs = compute_approach_pairs(detections, prev_centroids)
+    groups = detect_groups(detections)
+
+    group_map = {}
+    for gid, members in groups:
+        for mid in members:
+            group_map[detections[mid].track_id] = gid
+
     person_states = []
     for det in detections:
         tid = det.track_id
@@ -169,6 +255,22 @@ def compute_risk_scores(detections, tracks, frame_index):
         acceleration = _compute_acceleration(rec["velocities"])
         proximity = _compute_proximity(det, detections)
 
+        approach_v = 0.0
+        ttc = 999.0
+        for ap in approach_pairs:
+            if ap["id_a"] == tid or ap["id_b"] == tid:
+                if ap["approach_v"] > approach_v:
+                    approach_v = ap["approach_v"]
+                    ttc = ap["ttc"]
+
+        group_size_val = 0
+        gid = group_map.get(tid, -1)
+        if gid >= 0:
+            for gid2, members in groups:
+                if gid2 == gid:
+                    group_size_val = len(members)
+                    break
+
         signals = SignalVector(
             velocity=velocity,
             acceleration=acceleration,
@@ -176,13 +278,19 @@ def compute_risk_scores(detections, tracks, frame_index):
             pose_anomaly=0.0,
             object_flag=det.signals_hint_object,
             object_type=det.signals_hint_object_type,
+            approach_velocity=approach_v,
+            time_to_collision=ttc,
+            group_size=group_size_val,
         )
+
+        approach_norm = min(approach_v / APPROACH_NORM_FACTOR, 1.0)
 
         risk_score = (
             WEIGHT_VELOCITY * signals.velocity
             + WEIGHT_ACCEL * signals.acceleration
             + WEIGHT_PROXIMITY * min(signals.proximity_count / PROXIMITY_HIGH, 1.0)
             + WEIGHT_OBJECT * (1.0 if signals.object_flag else 0.0)
+            + WEIGHT_APPROACH * approach_norm
         )
         risk_score = max(0.0, min(1.0, risk_score))
 
@@ -198,87 +306,15 @@ def compute_risk_scores(detections, tracks, frame_index):
         person_states.append(PersonState(
             track_id=tid, bbox=det.bbox,
             risk_score=risk_score, risk_tier=tier,
-            signals=signals,
+            signals=signals, group_id=gid,
         ))
-    return person_states
+    return person_states, approach_pairs
 
 # ---------------------------------------------------------------------------
 # 4.  APPROCHE-VELOCITY + TIME-TO-COLLISION
 # ---------------------------------------------------------------------------
 
-def compute_approach_metrics(person_states, prev_positions=None):
-    """
-    Calcule l'approach-velocity et le TTC pour chaque paire de personnes.
-    Utilise la variation de distance inter-frame pour detecter l'approche reelle.
-    """
-    if prev_positions is None:
-        prev_positions = {}
-    alerts = []
-    for i in range(len(person_states)):
-        for j in range(i + 1, len(person_states)):
-            a, b = person_states[i], person_states[j]
-            dx = a.bbox.cx - b.bbox.cx
-            dy = a.bbox.cy - b.bbox.cy
-            cur_dist = math.hypot(dx, dy)
-            if cur_dist < 1:
-                continue
-
-            approach_v = 0.0
-            ttc = 999.0
-            p_a = prev_positions.get(a.track_id)
-            p_b = prev_positions.get(b.track_id)
-            if p_a and p_b:
-                prev_dist = math.hypot(p_a[0] - p_b[0], p_a[1] - p_b[1])
-                approach_v = max(0.0, (prev_dist - cur_dist))
-            else:
-                approach_v = 0.0
-
-            severity = 0
-            if approach_v > APPROACH_V_HIGH and cur_dist < 80:
-                severity = 3
-            elif approach_v > APPROACH_V_MED and cur_dist < 150:
-                severity = 2
-            elif approach_v > APPROACH_V_LOW:
-                severity = 1
-
-            if approach_v > 0.1:
-                ttc = cur_dist / approach_v
-
-            if severity > 0:
-                alerts.append({
-                    "id_a": a.track_id, "id_b": b.track_id,
-                    "approach_v": approach_v,
-                    "cur_dist": cur_dist,
-                    "ttc": ttc,
-                    "severity": severity,
-                })
-    return alerts
-
-# ---------------------------------------------------------------------------
-# 5.  ANALYSE DE GROUPE / ATTROUPEMENT
-# ---------------------------------------------------------------------------
-
-def detect_groups(person_states, radius=80, min_size=3):
-    """Detecte les groupes denses (attroupements)."""
-    if len(person_states) < min_size:
-        return []
-    groups = []
-    assigned = set()
-    for i, p in enumerate(person_states):
-        if i in assigned:
-            continue
-        cluster = [i]
-        assigned.add(i)
-        for j, q in enumerate(person_states):
-            if j in assigned:
-                continue
-            dist = math.hypot(p.bbox.cx - q.bbox.cx, p.bbox.cy - q.bbox.cy)
-            if dist <= radius:
-                cluster.append(j)
-                assigned.add(j)
-        if len(cluster) >= min_size:
-            groups.append(cluster)
-    return groups
+# (approach + group detection now integrated into compute_risk_scores)
 
 # ---------------------------------------------------------------------------
 # 6.  GENERATEUR DE SCENARIOS SYNTHETIQUES
@@ -492,23 +528,27 @@ def run_scenario(name, show_all_frames=False):
     print(f"Description : {description}")
     print(f"Frames : {len(generator)}{'='*70}\n")
 
-    prev_positions = {}
+    prev_centroids = {}
     for frame_idx, detections in enumerate(generator):
-        person_states = compute_risk_scores(detections, tracks, frame_idx)
-        approach_alerts = compute_approach_metrics(person_states, prev_positions)
-        for ps in person_states:
-            prev_positions[ps.track_id] = (ps.bbox.cx, ps.bbox.cy)
-        groups = detect_groups(person_states)
+        person_states, approach_pairs = compute_risk_scores(
+            detections, tracks, frame_idx, prev_centroids
+        )
+        for det in detections:
+            prev_centroids[det.track_id] = (det.bbox.cx, det.bbox.cy)
 
-        # Stats
+        unique_groups = set()
+        for p in person_states:
+            if p.group_id >= 0:
+                unique_groups.add(p.group_id)
+
         tiers = [p.risk_tier for p in person_states]
         high_count = sum(1 for t in tiers if t in ("high", "critical"))
         crit_count = sum(1 for t in tiers if t == "critical")
         max_risk = max((p.risk_score for p in person_states), default=0.0)
-        max_sev = max((a["severity"] for a in approach_alerts), default=0)
-        group_sizes = [len(g) for g in groups]
+        max_sev = max((a["severity"] for a in approach_pairs), default=0)
+        group_count = len(unique_groups)
 
-        if high_count > 0 or max_sev > 0 or len(groups) > 0:
+        if high_count > 0 or max_sev > 0 or group_count > 0:
             total_high += high_count
             total_critical += crit_count
             if max_sev > worst_severity: worst_severity = max_sev
@@ -520,8 +560,8 @@ def run_scenario(name, show_all_frames=False):
                 "critical": crit_count,
                 "max_risk": max_risk,
                 "max_sev": max_sev,
-                "approach_pairs": len(approach_alerts),
-                "groups": group_sizes,
+                "approach_pairs": len(approach_pairs),
+                "groups": group_count,
             }
             frame_alerts.append(frame_info)
 
@@ -534,11 +574,11 @@ def run_scenario(name, show_all_frames=False):
             line = (f"f{frame_idx:3d} | {risk_bar} {max_risk:.2f} "
                     f"| {tier_str} H:{high_count} C:{crit_count} "
                     f"{sev_meter} approche:{max_sev}")
-            if approach_alerts:
-                top_a = approach_alerts[0]
-                line += f" TTC:{top_a['ttc']:.1f}s dist:{top_a['cur_dist']:.0f}px"
-            if groups:
-                line += f" groupes:{group_sizes}"
+            if approach_pairs:
+                top_a = approach_pairs[0]
+                line += f" TTC:{top_a['ttc']:.1f}s dist:{top_a['dist']:.0f}px"
+            if group_count > 0:
+                line += f" groupes:{group_count}"
             print(line)
 
     severity_labels = {1: "WATCH", 2: "WARNING", 3: "DANGER"}

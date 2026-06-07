@@ -26,6 +26,15 @@ class Detection:
     signals_hint_object_type: str = ""
 
 @dataclass
+class ApproachPair:
+    id_a: int
+    id_b: int
+    approach_velocity: float
+    cur_dist: float
+    time_to_collision: float
+    severity: int
+
+@dataclass
 class SignalVector:
     velocity: float
     acceleration: float
@@ -33,6 +42,9 @@ class SignalVector:
     pose_anomaly: float
     object_flag: bool
     object_type: str
+    approach_velocity: float = 0.0
+    time_to_collision: float = 999.0
+    group_size: int = 0
 
 @dataclass
 class PersonState:
@@ -41,6 +53,7 @@ class PersonState:
     risk_score: float
     risk_tier: str
     signals: SignalVector
+    group_id: int = -1
 
 @dataclass
 class ZoneState:
@@ -48,3 +61,8 @@ class ZoneState:
     zone_score: float
     high_risk_count: int
     frame_index: int
+    approach_pairs_count: int = 0
+    approach_pairs: list = field(default_factory=list)
+    group_count: int = 0
+    approach_velocity_max: float = 0.0
+    min_ttc: float = 999.0
