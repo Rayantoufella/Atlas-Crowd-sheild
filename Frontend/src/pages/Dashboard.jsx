@@ -5,8 +5,10 @@
 // social-impact tiles, field-agent bars + toast notifications.
 // All design markup/logic lives here; styles are scoped under `.acs`.
 import React, { useEffect, useRef, useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import StadiumMap from '../components/StadiumMap';
 import { fetchLiveState, fetchCameras, fetchAgents, fetchEvents } from '../lib/api.js';
+import { useHashRouter } from '../lib/router.js';
 
 const CSS = `
 .acs {
@@ -252,7 +254,32 @@ const CSS = `
 .acs .toast svg { width: 20px; height: 20px; flex-shrink: 0; }
 .acs .toast-txt b { display: block; font-size: 12.5px; font-weight: 700; }
 .acs .toast-txt span { font-size: 11px; color: var(--text-2); }
+/* critical alert overlay */
+.acs-crit-overlay { position: fixed; inset: 0; z-index: 300; display: flex; align-items: center; justify-content: center;
+  background: rgba(4,8,16,0.55); backdrop-filter: blur(10px); animation: acs-fade 0.2s ease; }
+@keyframes acs-fade { from { opacity: 0; } to { opacity: 1; } }
+.acs-crit-card { width: 360px; padding: 28px; border-radius: 18px;
+  background: linear-gradient(135deg, rgba(40,16,24,0.95), rgba(20,8,12,0.96));
+  border: 1px solid rgba(239,68,68,0.4); box-shadow: 0 0 80px rgba(239,68,68,0.2);
+  display: flex; flex-direction: column; gap: 14px; }
+.acs-crit-title { font: 800 15px var(--sans, sans-serif); letter-spacing: 0.08em; color: var(--danger, #ef4444); display: flex; align-items: center; gap: 8px; }
+.acs-crit-zone { font: 700 20px "JetBrains Mono", monospace; color: #fff; }
+.acs-crit-pct { font: 800 13px "JetBrains Mono", monospace; color: var(--danger, #ef4444); }
+.acs-crit-cams { font-size: 12px; color: #9aa7bc; }
+.acs-crit-actions { display: flex; gap: 10px; margin-top: 4px; }
+.acs-crit-dismiss, .acs-crit-inspect { flex: 1; padding: 11px 0; border-radius: 10px; border: none;
+  font: 700 13px var(--sans, sans-serif); cursor: pointer; transition: all 0.15s; }
+.acs-crit-dismiss { background: rgba(255,255,255,0.08); color: #cdd8ea; }
+.acs-crit-dismiss:hover { background: rgba(255,255,255,0.14); }
+.acs-crit-inspect { background: linear-gradient(135deg, var(--danger, #ef4444), #dc2626); color: #fff;
+  box-shadow: 0 4px 20px rgba(239,68,68,0.35); }
+.acs-crit-inspect:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(239,68,68,0.5); }
 `;
+
+const ZONE_CAMERAS = {
+  G1: [0, 1], G2: [3, 4, 5], G3: [7, 8, 9],
+  G4: [11, 12, 13], G5: [15, 16, 17], G6: [19, 20, 21],
+};
 
 export default function Dashboard() {
   const rootRef = useRef(null);
@@ -260,6 +287,10 @@ export default function Dashboard() {
   const [cameras, setCameras] = useState([]);
   const [agents, setAgents] = useState([]);
   const [events, setEvents] = useState([]);
+  const [criticalAlert, setCriticalAlert] = useState(null);
+  const criticalAlertRef = useRef(criticalAlert);
+  criticalAlertRef.current = criticalAlert;
+  const { navigate } = useHashRouter();
 
   /* refs so timer callbacks can always read the latest values */
   const liveRef = useRef(live);
@@ -268,7 +299,13 @@ export default function Dashboard() {
   eventsRef.current = events;
 
   const fetchAll = () => {
-    fetchLiveState().then(setLive).catch(() => {});
+    fetchLiveState().then((data) => {
+      setLive(data);
+      if (!criticalAlertRef.current) {
+        const crit = data.zones?.find((z) => z.risk >= 80);
+        if (crit) setCriticalAlert(crit);
+      }
+    }).catch(() => {});
     fetchCameras().then(setCameras).catch(() => {});
     fetchAgents().then(setAgents).catch(() => {});
     fetchEvents().then(setEvents).catch(() => {});
@@ -674,6 +711,30 @@ export default function Dashboard() {
       </div>
 
       <div id="acs-toast-wrap"></div>
+      {criticalAlert && createPortal(
+        <div className="acs-crit-overlay" onClick={() => setCriticalAlert(null)}>
+          <div className="acs-crit-card" onClick={(e) => e.stopPropagation()}>
+            <div className="acs-crit-title">⚠ CRITICAL ZONE DETECTED</div>
+            <div>
+              <div className="acs-crit-zone">{criticalAlert.fr}</div>
+              <div className="acs-crit-pct">{criticalAlert.risk}% risk</div>
+            </div>
+            <div className="acs-crit-cams">
+              Cameras {(ZONE_CAMERAS[criticalAlert.code] || []).join(', ')} — {criticalAlert.fr}
+            </div>
+            <div className="acs-crit-cams" style={{ color: '#8a98b0', fontSize: 11 }}>
+              Immediate attention required. Inspect camera feed for this sector.
+            </div>
+            <div className="acs-crit-actions">
+              <button className="acs-crit-dismiss" onClick={() => setCriticalAlert(null)}>Dismiss</button>
+              <button className="acs-crit-inspect" onClick={() => { setCriticalAlert(null); navigate('/forensic'); }}>
+                🎥 Inspect Feed
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

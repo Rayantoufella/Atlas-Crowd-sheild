@@ -104,6 +104,25 @@ const CSS = `
 .sm-list .li .dr { font-size: 11px; color: #8a98b0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sm-list .li .pc { font: 700 13px "JetBrains Mono", monospace; text-align: right; }
 .sm-list .li .st { font-size: 9.5px; font-weight: 800; letter-spacing: 0.06em; text-align: right; }
+/* critical alert overlay inside modal */
+.sm-crit-overlay { position: absolute; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center;
+  background: rgba(4,8,16,0.6); backdrop-filter: blur(6px); animation: sm-fade 0.2s ease; }
+.sm-crit-card { width: 340px; padding: 28px; border-radius: 18px;
+  background: linear-gradient(135deg, rgba(40,16,24,0.92), rgba(20,8,12,0.94));
+  border: 1px solid rgba(239,68,68,0.35); box-shadow: 0 0 60px rgba(239,68,68,0.15);
+  display: flex; flex-direction: column; gap: 14px; }
+.sm-crit-title { font: 800 16px var(--sans, sans-serif); letter-spacing: 0.08em; color: var(--danger, #ef4444); display: flex; align-items: center; gap: 8px; }
+.sm-crit-zone { font: 700 22px "JetBrains Mono", monospace; color: #fff; }
+.sm-crit-pct { font: 800 14px "JetBrains Mono", monospace; color: var(--danger, #ef4444); }
+.sm-crit-cams { font-size: 12px; color: #9aa7bc; }
+.sm-crit-actions { display: flex; gap: 10px; margin-top: 4px; }
+.sm-crit-dismiss, .sm-crit-inspect { flex: 1; padding: 11px 0; border-radius: 10px; border: none;
+  font: 700 13px var(--sans, sans-serif); cursor: pointer; transition: all 0.15s; }
+.sm-crit-dismiss { background: rgba(255,255,255,0.08); color: #cdd8ea; }
+.sm-crit-dismiss:hover { background: rgba(255,255,255,0.14); }
+.sm-crit-inspect { background: linear-gradient(135deg, var(--danger, #ef4444), #dc2626); color: #fff;
+  box-shadow: 0 4px 20px rgba(239,68,68,0.35); }
+.sm-crit-inspect:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(239,68,68,0.5); }
 `;
 
 const C = {
@@ -142,12 +161,12 @@ const rng = (seed) => {
 
 const HALF = 27;
 const BASE_SECTORS = [
-  { id: 'P1', n: 1, gate: 'Nord',       c: -90, cams: 8, agents: 342, cap: 11200 },
-  { id: 'P2', n: 2, gate: 'Nord-Est',   c: -30, cams: 8, agents: 210, cap: 11200 },
-  { id: 'P3', n: 3, gate: 'Est',        c: 30,  cams: 9, agents: 89,  cap: 11600 },
-  { id: 'P4', n: 4, gate: 'Sud',        c: 90,  cams: 8, agents: 280, cap: 11600 },
-  { id: 'P5', n: 5, gate: 'Ouest',      c: 150, cams: 7, agents: 256, cap: 11200 },
-  { id: 'P6', n: 6, gate: 'Nord-Ouest', c: 210, cams: 8, agents: 168, cap: 11200 },
+  { id: 'P1', n: 1, gate: 'Nord',       c: -90, cams: 8, agents: 342, cap: 11200, cameraIndices: [0, 1] },
+  { id: 'P2', n: 2, gate: 'Nord-Est',   c: -30, cams: 8, agents: 210, cap: 11200, cameraIndices: [3, 4, 5] },
+  { id: 'P3', n: 3, gate: 'Est',        c: 30,  cams: 9, agents: 89,  cap: 11600, cameraIndices: [7, 8, 9] },
+  { id: 'P4', n: 4, gate: 'Sud',        c: 90,  cams: 8, agents: 280, cap: 11600, cameraIndices: [11, 12, 13] },
+  { id: 'P5', n: 5, gate: 'Ouest',      c: 150, cams: 7, agents: 256, cap: 11200, cameraIndices: [15, 16, 17] },
+  { id: 'P6', n: 6, gate: 'Nord-Ouest', c: 210, cams: 8, agents: 168, cap: 11200, cameraIndices: [19, 20, 21] },
 ];
 const HARDCODED_PCTS = [28, 39, 82, 61, 35, 71];
 const DEFAULT_SECTORS = BASE_SECTORS.map((s, i) => {
@@ -404,12 +423,23 @@ export default function StadiumMap({ zones }) {
   const sectors = useMemo(() => buildSectors(zones), [zones]);
   const [selId, setSelId] = useState('P3');
   const sel = sectors.find((s) => s.id === selId) || sectors[0];
+  const [criticalAlert, setCriticalAlert] = useState(null);
   const { navigate } = useHashRouter();
   const onCameraClick = (i) => navigate(`/forensic/cam-${i}`);
 
+  const handleOpen = () => {
+    setOpen(true);
+    const crit = sectors.find((s) => s.critical);
+    if (crit) setCriticalAlert(crit);
+  };
+  const handleClose = () => {
+    setOpen(false);
+    setCriticalAlert(null);
+  };
+
   return (
     <>
-      <div className="sm-wrap sm-clickable" onClick={() => setOpen(true)} title="Click to expand">
+      <div className="sm-wrap sm-clickable" onClick={handleOpen} title="Click to expand">
         <style>{CSS}</style>
         <div className="sm-title">STADE MOULAY ABDELLAH · RABAT</div>
 
@@ -421,11 +451,11 @@ export default function StadiumMap({ zones }) {
       </div>
 
       {open && createPortal(
-        <div className="sm-modal" onClick={() => setOpen(false)}>
+        <div className="sm-modal" onClick={handleClose}>
           <style>{CSS}</style>
           <div className="sm-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="sm-stage">
-              <button className="sm-close" aria-label="Close" onClick={() => setOpen(false)}>×</button>
+              <button className="sm-close" aria-label="Close" onClick={handleClose}>×</button>
               <div className="sm-title">STADE MOULAY ABDELLAH · RABAT</div>
               <div className="sm-legend">
                 <span><i style={{ background: C.safe }} />Safe</span>
@@ -462,6 +492,29 @@ export default function StadiumMap({ zones }) {
               </div>
             </div>
           </div>
+          {criticalAlert && (
+            <div className="sm-crit-overlay">
+              <div className="sm-crit-card">
+                <div className="sm-crit-title">⚠ CRITICAL ZONE</div>
+                <div>
+                  <div className="sm-crit-zone">Porte {criticalAlert.n} · {criticalAlert.gate}</div>
+                  <div className="sm-crit-pct">{criticalAlert.pct}% occupancy</div>
+                </div>
+                <div className="sm-crit-cams">
+                  Cameras {criticalAlert.cameraIndices.join(', ')} — {criticalAlert.gate} sector
+                </div>
+                <div className="sm-crit-cams" style={{ color: '#8a98b0', fontSize: 11 }}>
+                  Immediate attention required.
+                </div>
+                <div className="sm-crit-actions">
+                  <button className="sm-crit-dismiss" onClick={() => setCriticalAlert(null)}>Dismiss</button>
+                  <button className="sm-crit-inspect" onClick={() => { setCriticalAlert(null); onCameraClick(criticalAlert.cameraIndices[0]); }}>
+                    🎥 Inspect Feed
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>,
         document.body
       )}
