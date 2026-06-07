@@ -374,7 +374,7 @@ function StadiumScene({ onGateClick, selectedId, sectors, onCameraClick }) {
 }
 
 // ---------------------------------------------------------------------------
-function GateDetail({ s }) {
+function GateDetail({ s, onCameraClick }) {
   const st = statusOf(s.pct);
   const inside = Math.round(s.cap * s.pct / 100);
   const flow = s.critical ? '+14%' : s.pct >= 60 ? '+9%' : '−3%';
@@ -392,7 +392,7 @@ function GateDetail({ s }) {
         <div className="sm-stat"><div className="k">Capacity</div><div className="v">{s.cap.toLocaleString('en-US')}</div></div>
         <div className="sm-stat"><div className="k">Flow rate</div><div className="v" style={{ color: flow.startsWith('+') ? C.warn : C.safe }}>{flow}</div></div>
         <div className="sm-stat"><div className="k">Field agents</div><div className="v">{s.agents}</div></div>
-        <div className="sm-stat"><div className="k">Cameras</div><div className="v">{s.cams} online</div></div>
+        <div className="sm-stat" onClick={() => onCameraClick?.(s.n - 1)} style={{ cursor: 'pointer' }}><div className="k">Cameras</div><div className="v">{s.cams} online</div></div>
         <div className="sm-stat"><div className="k">Sector</div><div className="v">{s.id}</div></div>
       </div>
     </div>
@@ -438,7 +438,7 @@ export default function StadiumMap({ zones }) {
             <div className="sm-panel">
               <h2>GATE DETAIL</h2>
               <div className="sub">Live sector telemetry · click a gate</div>
-              <GateDetail s={sel} />
+              <GateDetail s={sel} onCameraClick={onCameraClick} />
               <div className="sm-list">
                 <div className="lh">
                   <span />
