@@ -23,6 +23,9 @@ def process_video(video_path, job_id, progress_callback, frame_callback=None):
     total_frames = reader.total_frames
     frame_idx = 0
     detections = []
+    LABEL_ORDER = {"CALM": 0, "WATCH": 1, "WARNING": 2, "CRITICAL": 3}
+    peak_label = "CALM"
+    peak_score = 0.0
 
     while True:
         ret, frame, idx = reader.read()
@@ -32,6 +35,10 @@ def process_video(video_path, job_id, progress_callback, frame_callback=None):
         dets = detector.run(frame, idx)
         person_states = behavior.update(dets, idx, reader.height)
         zone_state = alert.classify(person_states, idx)
+
+        if LABEL_ORDER.get(zone_state.label, 0) > LABEL_ORDER.get(peak_label, 0):
+            peak_label = zone_state.label
+            peak_score = zone_state.zone_score
 
         annotated = renderer.draw(frame, person_states, zone_state, detector.last_objects)
 
@@ -105,4 +112,6 @@ def process_video(video_path, job_id, progress_callback, frame_callback=None):
         "total_frames": total_frames,
         "detections_count": len(detections),
         "detections": detections,
+        "peak_label": peak_label,
+        "peak_score": peak_score,
     })

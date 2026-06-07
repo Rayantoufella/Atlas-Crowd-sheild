@@ -1,12 +1,12 @@
 {
   "conf_threshold": 0.2,
   "weight_velocity": 0.25,
-  "weight_accel": 0.20,
+  "weight_accel": 0.2,
   "weight_proximity": 0.35,
-  "weight_object": 0.20,
+  "weight_object": 0.2,
   "thresh_low": 0.35,
-  "thresh_medium": 0.50,
-  "thresh_high": 0.65,
+  "thresh_medium": 0.43,
+  "thresh_high": 0.52,
   "zone_calm": 0.2,
   "zone_watch": 0.3,
   "zone_warning": 0.42,
@@ -16,5 +16,5 @@
   "stream_jpeg_quality": 100,
   "snapshot_jpeg_quality": 100,
   "stream_width": 1280,
-  "snapshot_width": 320
+  "snapshot_width": 640
 }

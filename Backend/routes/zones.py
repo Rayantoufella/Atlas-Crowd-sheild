@@ -37,10 +37,10 @@ def zones_live():
     upcoming = Match.query.filter(Match.match_date > now).order_by(Match.match_date.asc()).first()
 
     match_obj = live_match or upcoming
-    state = current_state if current_state else {}
-
-    if not state.get("zones"):
-        state["zones"] = DEFAULT_ZONES
+    global current_state
+    if current_state is None:
+        current_state = {"zones": [dict(z) for z in DEFAULT_ZONES]}
+    state = current_state
 
     state["timestamp"] = now.isoformat() + "Z"
 
@@ -62,13 +62,14 @@ def zones_live():
     cameras_active = Camera.query.filter_by(status="ACTIVE").count()
     agents_deployed = Agent.query.filter_by(status="DEPLOYED").count()
 
-    state.setdefault("stats", {
+    from models.alert import Alert
+    state["stats"] = {
         "supporters_inside": 68420,
         "agents_deployed": agents_deployed,
-        "incidents_prevented": 0,
+        "incidents_prevented": Alert.query.filter_by(active=False).count(),
         "cameras_active": cameras_active,
         "cameras_total": cameras_total,
-    })
+    }
 
     return jsonify(state)
 

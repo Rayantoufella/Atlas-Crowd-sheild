@@ -54,6 +54,9 @@ def push_stream_frame(job_id, jpeg_bytes):
                 ev.set()
 
 ALLOWED_EXT = {".mp4", ".avi", ".mov", ".mkv", ".webm"}
+
+# Set by app.py after import to avoid circular imports.
+_flask_app = None
 MAX_SIZE_MB = 500
 MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024
 
@@ -62,6 +65,52 @@ VIDEO_DIR = os.path.join(BASE_DIR, "video")
 VIDEO_DANGER = os.path.join(VIDEO_DIR, "danger.mp4")
 VIDEO_WARNING = os.path.join(VIDEO_DIR, "warning.mp4")
 VIDEO_NORMAL = os.path.join(VIDEO_DIR, "normal.mp4")
+
+def _create_alert_from_forensic(job_id, camera_id=None):
+    """After forensic analysis completes, create an Alert record if zone reached WARNING/CRITICAL."""
+    from database import db
+    from models.alert import Alert
+    from models.match import Match
+    from datetime import datetime, timedelta
+
+    job = jobs_dict.get(job_id)
+    if not job or job.get("status") != "done":
+        return
+
+    detections_count = job.get("detections_count", 0)
+    peak_label = job.get("peak_label", "CALM")
+
+    if detections_count == 0 and peak_label not in ("WARNING", "CRITICAL"):
+        return
+
+    alert_label = peak_label if peak_label in ("WARNING", "CRITICAL") else "WARNING"
+    agents = 12 if alert_label == "CRITICAL" else 6
+    if detections_count > 0:
+        msg = f"Analyse vidéo — {detections_count} comportements à risque détectés (pic {peak_label})"
+    else:
+        msg = f"Analyse vidéo — zone en état {peak_label} (score {job.get('peak_score', 0):.0%})"
+
+    with _flask_app.app_context():
+        match = Match.query.filter(
+            Match.match_date <= datetime.now(),
+            Match.match_date + timedelta(hours=3) >= datetime.now(),
+        ).order_by(Match.match_date.asc()).first()
+        match_id = match.id if match else 1
+
+        zone_id = f"gate_{(camera_id % 6) + 1}" if camera_id is not None else "gate_3"
+
+        alert = Alert(
+            match_id=match_id,
+            zone_id=zone_id,
+            message=msg,
+            eta_minutes=5,
+            agents_needed=agents,
+            redirect_to="gate_5",
+            active=True,
+        )
+        db.session.add(alert)
+        db.session.commit()
+
 
 # Caméras du poste critique (Porte 3 Est) → vidéo de danger.
 # Caméras des zones warning (G4, G6) → vidéo warning.
@@ -124,6 +173,7 @@ def auto_analyze():
                     update_job(job_id, {"status": "error", "error": str(e)})
         finally:
             with data_lock:
+                _create_alert_from_forensic(job_id, camera_id)
                 stream_events.pop(job_id, None)
                 stream_buffers.pop(job_id, None)
 
@@ -187,6 +237,7 @@ def upload_video():
                     update_job(job_id, {"status": "error", "error": str(e)})
         finally:
             with data_lock:
+                _create_alert_from_forensic(job_id, camera_id=None)
                 stream_events.pop(job_id, None)
                 stream_buffers.pop(job_id, None)
 

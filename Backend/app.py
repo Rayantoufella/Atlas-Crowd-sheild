@@ -5,6 +5,7 @@ import time
 import json
 import io
 import qrcode
+from datetime import datetime, timedelta
 from config import SQLALCHEMY_DATABASE_URI, SQLALCHEMY_TRACK_MODIFICATIONS
 from database import db
 
@@ -21,6 +22,14 @@ from models.agent import Agent
 from models.camera import Camera
 
 def _seed_if_empty():
+    if Match.query.count() == 0:
+        match = Match(
+            team_a="Maroc", team_b="Sénégal",
+            stadium="Stade Moulay Abdellah",
+            match_date=datetime(2025, 6, 15, 20, 0),
+            capacity=68700,
+        )
+        db.session.add(match)
     if Agent.query.count() == 0:
         agents_data = [
             Agent(nom="El Amrani", prenom="Yassine", matricule="MR-1041", sector="Est", gateCode="G3", phone="+212 661 11 22 33", status="DEPLOYED"),
@@ -59,6 +68,76 @@ except Exception as e:
     print(f"WARNING: Database unavailable — {e}")
     print("The app will start but DB-dependent features will not work.")
 
+
+def _alert_engine():
+    """Background thread: monitors zone risks, auto-creates/resolves Alert records."""
+    with app.app_context():
+        while True:
+            try:
+                from routes.zones import current_state, DEFAULT_ZONES
+
+                state = current_state
+                if state is None:
+                    time.sleep(5)
+                    continue
+
+                zones = state.get("zones") or DEFAULT_ZONES
+
+                live_match = Match.query.filter(
+                    Match.match_date <= datetime.now(),
+                    Match.match_date + timedelta(hours=3) >= datetime.now(),
+                ).order_by(Match.match_date.asc()).first()
+                match_id = live_match.id if live_match else None
+                if not match_id:
+                    upcoming = Match.query.filter(
+                        Match.match_date > datetime.now()
+                    ).order_by(Match.match_date.asc()).first()
+                    match_id = upcoming.id if upcoming else None
+                if not match_id:
+                    time.sleep(5)
+                    continue
+
+                for zone in zones:
+                    gate_id = zone["id"]
+                    status = zone.get("status", "safe")
+                    risk = zone.get("risk", 0)
+
+                    if status in ("critical", "warning"):
+                        existing = Alert.query.filter_by(
+                            zone_id=gate_id, active=True
+                        ).first()
+                        if not existing:
+                            alert = Alert(
+                                match_id=match_id,
+                                zone_id=gate_id,
+                                message=(
+                                    f"Compression détectée — {zone['label']} à {risk}%"
+                                ),
+                                eta_minutes=5,
+                                agents_needed=12 if status == "critical" else 6,
+                                redirect_to="gate_5",
+                                active=True,
+                            )
+                            db.session.add(alert)
+                            db.session.commit()
+                    else:
+                        active_alerts = Alert.query.filter_by(
+                            zone_id=gate_id, active=True
+                        ).all()
+                        for a in active_alerts:
+                            a.active = False
+                            prevented = state.setdefault("stats", {}).get(
+                                "incidents_prevented", 0
+                            )
+                            state["stats"]["incidents_prevented"] = prevented + 1
+                        if active_alerts:
+                            db.session.commit()
+
+            except Exception as e:
+                print(f"[alert_engine] {e}")
+            time.sleep(5)
+
+
 from routes.match import match_bp
 from routes.zones import zones_bp
 from routes.alerts import alerts_bp
@@ -66,6 +145,8 @@ from routes.supporter import supporter_bp
 from routes.cameras import cameras_bp
 from routes.agents import agents_bp
 from routes.events import events_bp
+import routes.forensic as forensic_module
+forensic_module._flask_app = app
 from routes.forensic import forensic_bp
 from routes.settings import settings_bp
 from routes.reports import reports_bp
@@ -171,4 +252,6 @@ def get_report(match_id):
 
 
 if __name__ == "__main__":
+    _thread = threading.Thread(target=_alert_engine, daemon=True)
+    _thread.start()
     app.run(debug=True, port=5050)
