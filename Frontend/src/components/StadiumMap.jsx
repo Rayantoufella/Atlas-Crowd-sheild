@@ -140,14 +140,29 @@ const rng = (seed) => {
 };
 
 const HALF = 27;
-const SECTORS = [
-  { id: 'P1', n: 1, gate: 'Nord',       pct: 28, color: C.safe, c: -90, cams: 8, agents: 342, cap: 11200 },
-  { id: 'P2', n: 2, gate: 'Nord-Est',   pct: 39, color: C.safe, c: -30, cams: 8, agents: 210, cap: 11200 },
-  { id: 'P3', n: 3, gate: 'Est',        pct: 82, color: C.crit, c: 30, critical: true, cams: 9, agents: 89, cap: 11600 },
-  { id: 'P4', n: 4, gate: 'Sud',        pct: 61, color: C.warn, c: 90, cams: 8, agents: 280, cap: 11600 },
-  { id: 'P5', n: 5, gate: 'Ouest',      pct: 35, color: C.safe, c: 150, cams: 7, agents: 256, cap: 11200 },
-  { id: 'P6', n: 6, gate: 'Nord-Ouest', pct: 71, color: C.warn, c: 210, cams: 8, agents: 168, cap: 11200 },
+const BASE_SECTORS = [
+  { id: 'P1', n: 1, gate: 'Nord',       c: -90, cams: 8, agents: 342, cap: 11200 },
+  { id: 'P2', n: 2, gate: 'Nord-Est',   c: -30, cams: 8, agents: 210, cap: 11200 },
+  { id: 'P3', n: 3, gate: 'Est',        c: 30,  cams: 9, agents: 89,  cap: 11600 },
+  { id: 'P4', n: 4, gate: 'Sud',        c: 90,  cams: 8, agents: 280, cap: 11600 },
+  { id: 'P5', n: 5, gate: 'Ouest',      c: 150, cams: 7, agents: 256, cap: 11200 },
+  { id: 'P6', n: 6, gate: 'Nord-Ouest', c: 210, cams: 8, agents: 168, cap: 11200 },
 ];
+const HARDCODED_PCTS = [28, 39, 82, 61, 35, 71];
+const DEFAULT_SECTORS = BASE_SECTORS.map((s, i) => {
+  const pct = HARDCODED_PCTS[i];
+  const color = pct >= 80 ? C.crit : pct >= 65 ? C.warn : C.safe;
+  return { ...s, pct, color, critical: pct >= 80 };
+});
+
+function buildSectors(zones) {
+  if (!zones || zones.length === 0) return DEFAULT_SECTORS;
+  return BASE_SECTORS.map((s, i) => {
+    const pct = zones[i]?.risk ?? HARDCODED_PCTS[i];
+    const color = pct >= 80 ? C.crit : pct >= 65 ? C.warn : C.safe;
+    return { ...s, pct, color, critical: pct >= 80 };
+  });
+}
 const TIERS = [[0.50, 0.66], [0.68, 0.83], [0.85, 1.0]];
 
 function wedge(a0, a1, ri, ro) {
@@ -180,11 +195,12 @@ function dotsInSector(s, seed) {
 // The stadium scene (reused at inline size and full-size modal).
 // onGateClick(sector) — optional; selectedId highlights a gate.
 // ---------------------------------------------------------------------------
-function StadiumScene({ onGateClick, selectedId }) {
-  const crowd = useMemo(() => SECTORS.map((s, i) => ({ ...s, dots: dotsInSector(s, 1000 + i * 131) })), []);
+function StadiumScene({ onGateClick, selectedId, sectors }) {
+  const sec = sectors || DEFAULT_SECTORS;
+  const crowd = useMemo(() => sec.map((s, i) => ({ ...s, dots: dotsInSector(s, 1000 + i * 131) })), [sec]);
   const agents = useMemo(() => {
     const out = [];
-    SECTORS.forEach((s, si) => {
+    sec.forEach((s, si) => {
       const r = rng(7000 + si * 53);
       for (let i = 0; i < 3; i++) {
         const a = s.c - HALF + 6 + r() * (2 * HALF - 12);
@@ -208,7 +224,7 @@ function StadiumScene({ onGateClick, selectedId }) {
   }, []);
   const seatRows = useMemo(() => {
     const rows = [];
-    SECTORS.forEach((s) => {
+    sec.forEach((s) => {
       TIERS.forEach(([ri, ro], ti) => {
         const n = 6 + ti * 2;
         for (let k = 1; k < n; k++) rows.push({ id: `${s.id}-${ti}-${k}`, d: arc(s.c - HALF + 1.5, s.c + HALF - 1.5, ri + (ro - ri) * (k / n)) });
@@ -276,7 +292,8 @@ function StadiumScene({ onGateClick, selectedId }) {
 
       {/* selected sector highlight ring */}
       {selectedId && (() => {
-        const s = SECTORS.find((x) => x.id === selectedId);
+        const s = sec.find((x) => x.id === selectedId);
+        if (!s) return null;
         return <path d={wedge(s.c - HALF, s.c + HALF, RI, RO)} fill="none" stroke="#fff" strokeWidth="2.2" opacity="0.85" />;
       })()}
 
@@ -312,7 +329,7 @@ function StadiumScene({ onGateClick, selectedId }) {
       <ellipse cx={CX} cy={CY} rx={AS} ry={BS} fill="url(#sm-vignette)" pointerEvents="none" />
 
       {/* ---- clickable sector hit-areas ---- */}
-      {interactive && SECTORS.map((s) => (
+      {interactive && sec.map((s) => (
         <path key={`hit-${s.id}`} className="sm-hit" d={wedge(s.c - HALF, s.c + HALF, RI, RO)}
           onClick={(e) => { e.stopPropagation(); onGateClick(s); }}>
           <title>{`Porte ${s.n} · ${s.gate} — ${s.pct}%`}</title>
@@ -320,7 +337,7 @@ function StadiumScene({ onGateClick, selectedId }) {
       ))}
 
       {/* ---- LARGE, CLEAR gate badges ---- */}
-      {SECTORS.map((g) => {
+      {sec.map((g) => {
         const ex = CX + RO * A * Math.cos(g.c * D2R), ey = CY + RO * B * Math.sin(g.c * D2R);
         const bx = CX + 1.16 * AS * Math.cos(g.c * D2R), by = CY + 1.12 * BS * Math.sin(g.c * D2R);
         const w = 154, h = 54;
@@ -380,10 +397,11 @@ function GateDetail({ s }) {
   );
 }
 
-export default function StadiumMap() {
+export default function StadiumMap({ zones }) {
   const [open, setOpen] = useState(false);
+  const sectors = useMemo(() => buildSectors(zones), [zones]);
   const [selId, setSelId] = useState('P3');
-  const sel = SECTORS.find((s) => s.id === selId) || SECTORS[0];
+  const sel = sectors.find((s) => s.id === selId) || sectors[0];
 
   return (
     <>
@@ -392,7 +410,7 @@ export default function StadiumMap() {
         <div className="sm-title">STADE MOULAY ABDELLAH · RABAT</div>
 
         <div style={{ width: '100%', height: '100%' }}>
-          <StadiumScene />
+          <StadiumScene sectors={sectors} />
         </div>
 
         <div className="sm-expand-hint">⤢ Click to expand</div>
@@ -411,7 +429,7 @@ export default function StadiumMap() {
                 <span><i style={{ background: C.crit }} />Critical</span>
                 <span><i style={{ background: '#e6edf7' }} />Camera</span>
               </div>
-              <StadiumScene onGateClick={(s) => setSelId(s.id)} selectedId={selId} />
+              <StadiumScene sectors={sectors} onGateClick={(s) => setSelId(s.id)} selectedId={selId} />
             </div>
             <div className="sm-panel">
               <h2>GATE DETAIL</h2>
@@ -425,7 +443,7 @@ export default function StadiumMap() {
                   <span className="r">Occ.</span>
                   <span className="r">Statut</span>
                 </div>
-                {SECTORS.map((s) => {
+                {sectors.map((s) => {
                   const st = statusOf(s.pct);
                   return (
                     <div key={s.id} className={`li ${s.id === selId ? 'active' : ''}`} onClick={() => setSelId(s.id)}>

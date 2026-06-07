@@ -65,5 +65,5 @@ def list_matches():
         "stadium": m.stadium,
         "match_date": m.match_date.isoformat(),
         "capacity": m.capacity,
-        "status": "LIVE" if m.match_date <= datetime.utcnow() <= m.match_date + MATCH_DURATION else ("UPCOMING" if m.match_date > datetime.utcnow() else "FINISHED"),
+        "status": "LIVE" if m.match_date <= datetime.now() <= m.match_date + MATCH_DURATION else ("UPCOMING" if m.match_date > datetime.now() else "FINISHED"),
     } for m in matches])

@@ -587,7 +587,7 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <div className="stadium-svg-wrap">
-                  <StadiumMap />
+                  <StadiumMap zones={live?.zones} />
                 </div>
               </div>
 

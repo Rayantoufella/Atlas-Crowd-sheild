@@ -39,7 +39,7 @@ export default function Matchs() {
       updateMatch(wizardInitial.backendId || wizardInitial.id, {
         team_a: m.teamA,
         team_b: m.teamB,
-        stadium: m.stadium,
+        stadium: m.stadiumId,
         match_date: m.datetime,
         capacity: m.capAuth,
       }).then(() => {
@@ -50,7 +50,7 @@ export default function Matchs() {
       createMatch({
         team_a: m.teamA,
         team_b: m.teamB,
-        stadium: m.stadium,
+        stadium: m.stadiumId,
         match_date: m.datetime,
         capacity: m.capAuth,
       }).then(() => {

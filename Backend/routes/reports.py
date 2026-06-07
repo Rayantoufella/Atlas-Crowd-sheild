@@ -184,7 +184,7 @@ def match_summary(match_id):
             "stadium": match.stadium,
             "match_date": match.match_date.isoformat(),
             "capacity": match.capacity,
-            "status": "LIVE" if match.match_date <= datetime.utcnow() <= match.match_date + timedelta(hours=3) else ("UPCOMING" if match.match_date > datetime.utcnow() else "FINISHED"),
+            "status": "LIVE" if match.match_date <= datetime.now() <= match.match_date + timedelta(hours=3) else ("UPCOMING" if match.match_date > datetime.now() else "FINISHED"),
         },
         "incidents": {
             "total": len(alerts),
@@ -222,7 +222,7 @@ def export_incidents_pdf():
         if m:
             pdf.cell_label("Match", f"{m.team_a} vs {m.team_b}")
     pdf.cell_label("Total incidents", str(len(alerts)))
-    pdf.cell_label("Généré le", datetime.utcnow().strftime("%d/%m/%Y %H:%M"))
+    pdf.cell_label("Généré le", datetime.now().strftime("%d/%m/%Y %H:%M"))
     pdf.ln(4)
 
     cols = ["ID", "Zone", "Message", "Agents", "ETA", "Statut", "Date"]

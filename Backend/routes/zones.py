@@ -21,14 +21,14 @@ DEFAULT_ZONES = [
 
 
 def _match_status(m):
-    if m.match_date <= datetime.utcnow() <= m.match_date + timedelta(hours=3):
+    if m.match_date <= datetime.now() <= m.match_date + timedelta(hours=3):
         return "LIVE"
-    return "UPCOMING" if m.match_date > datetime.utcnow() else "FINISHED"
+    return "UPCOMING" if m.match_date > datetime.now() else "FINISHED"
 
 
 @zones_bp.route("/api/zones/live")
 def zones_live():
-    now = datetime.utcnow()
+    now = datetime.now()
     live_match = Match.query.filter(
         Match.match_date <= now,
         Match.match_date + timedelta(hours=3) >= now,
@@ -54,7 +54,8 @@ def zones_live():
     if not state.get("minute"):
         state["minute"] = 0 if not live_match else int((now - live_match.match_date).total_seconds() // 60)
 
-    state.setdefault("global_risk", 28)
+    zone_risks = [z.get("risk", 0) for z in state.get("zones", [])]
+    state["global_risk"] = int(sum(zone_risks) / len(zone_risks)) if zone_risks else 28
     state.setdefault("alert", {"active": False})
 
     cameras_total = Camera.query.count()
