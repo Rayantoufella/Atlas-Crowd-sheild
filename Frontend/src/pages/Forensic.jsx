@@ -41,7 +41,7 @@ export default function Forensic() {
     }).then(r => r.json()).then(data => {
       if (data.job_id) setJobId(data.job_id);
       else setError(data.error || 'Auto-analyze failed');
-    }).catch(() => setError('Failed to start auto-analysis'));
+    }).catch((err) => { console.error('auto-analyze fetch error:', err); setError('Failed to start auto-analysis'); });
   }, [cameraId, jobId]);
 
   useEffect(() => {
