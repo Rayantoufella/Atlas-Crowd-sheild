@@ -13,6 +13,7 @@
 //   detail panel; click a gate to inspect its live metrics.
 import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useHashRouter } from '../lib/router.js';
 
 const CSS = `
 .sm-wrap { position: relative; width: 100%; height: 100%; min-height: 0;
@@ -195,7 +196,7 @@ function dotsInSector(s, seed) {
 // The stadium scene (reused at inline size and full-size modal).
 // onGateClick(sector) — optional; selectedId highlights a gate.
 // ---------------------------------------------------------------------------
-function StadiumScene({ onGateClick, selectedId, sectors }) {
+function StadiumScene({ onGateClick, selectedId, sectors, onCameraClick }) {
   const sec = sectors || DEFAULT_SECTORS;
   const crowd = useMemo(() => sec.map((s, i) => ({ ...s, dots: dotsInSector(s, 1000 + i * 131) })), [sec]);
   const agents = useMemo(() => {
@@ -319,7 +320,8 @@ function StadiumScene({ onGateClick, selectedId, sectors }) {
       {/* ---- cameras / agents ---- */}
       {cameras.map((c, i) => (
         <circle key={i} cx={c.x} cy={c.y} r={c.off ? 3 : 2.2} fill={c.off ? C.crit : '#e6edf7'}
-          style={{ filter: c.off ? `drop-shadow(0 0 3px ${C.crit})` : 'drop-shadow(0 0 2px rgba(230,237,247,0.8))' }} />
+          onClick={(e) => { e.stopPropagation(); onCameraClick?.(i); }}
+          style={{ cursor: 'pointer', filter: c.off ? `drop-shadow(0 0 3px ${C.crit})` : 'drop-shadow(0 0 2px rgba(230,237,247,0.8))' }} />
       ))}
       {agents.map((a, i) => (
         <circle key={i} className="sm-agent" cx={a.x} cy={a.y} r="2.3" fill={C.safe}
@@ -402,6 +404,8 @@ export default function StadiumMap({ zones }) {
   const sectors = useMemo(() => buildSectors(zones), [zones]);
   const [selId, setSelId] = useState('P3');
   const sel = sectors.find((s) => s.id === selId) || sectors[0];
+  const { navigate } = useHashRouter();
+  const onCameraClick = (i) => navigate(`/forensic/cam-${i}`);
 
   return (
     <>
@@ -410,7 +414,7 @@ export default function StadiumMap({ zones }) {
         <div className="sm-title">STADE MOULAY ABDELLAH · RABAT</div>
 
         <div style={{ width: '100%', height: '100%' }}>
-          <StadiumScene sectors={sectors} />
+          <StadiumScene sectors={sectors} onCameraClick={onCameraClick} />
         </div>
 
         <div className="sm-expand-hint">⤢ Click to expand</div>
@@ -429,7 +433,7 @@ export default function StadiumMap({ zones }) {
                 <span><i style={{ background: C.crit }} />Critical</span>
                 <span><i style={{ background: '#e6edf7' }} />Camera</span>
               </div>
-              <StadiumScene sectors={sectors} onGateClick={(s) => setSelId(s.id)} selectedId={selId} />
+              <StadiumScene sectors={sectors} onGateClick={(s) => setSelId(s.id)} selectedId={selId} onCameraClick={onCameraClick} />
             </div>
             <div className="sm-panel">
               <h2>GATE DETAIL</h2>

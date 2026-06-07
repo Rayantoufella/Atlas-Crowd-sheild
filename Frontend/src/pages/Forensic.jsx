@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Icon } from '../lib/icons.jsx';
 import API_BASE from '../lib/config.js';
+import { useHashRouter } from '../lib/router.js';
 
 const LABEL_COLORS = {
   CRITICAL: { bg: 'rgba(244,63,94,0.18)', fg: '#fb7185', label: 'Critical' },
@@ -10,6 +11,8 @@ const LABEL_COLORS = {
 };
 
 export default function Forensic() {
+  const { segments } = useHashRouter();
+  const cameraId = segments[1] || null;
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [jobId, setJobId] = useState(null);
@@ -298,6 +301,17 @@ export default function Forensic() {
         <div className="fr" style={{ fontSize: 12.5, color: 'var(--fg-2)', marginTop: 4 }}>
           Upload match footage for automated threat detection
         </div>
+        {cameraId && (
+          <div style={{
+            marginTop: 12, padding: '10px 16px', borderRadius: 10,
+            background: 'rgba(59,158,255,0.12)', border: '1px solid rgba(59,158,255,0.25)',
+            display: 'flex', alignItems: 'center', gap: 10, fontSize: 13,
+          }}>
+            <Icon.Camera size={16} />
+            <span style={{ fontWeight: 600 }}>Camera {cameraId.replace('cam-', '')}</span>
+            <span style={{ color: 'var(--fg-2)' }}>— drop or upload footage from this camera for forensic analysis</span>
+          </div>
+        )}
       </div>
 
       {!jobId && (
