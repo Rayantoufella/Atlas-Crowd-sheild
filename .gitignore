@@ -1,5 +1,5 @@
 Backend/uploads/
-Backend/yolov8n.pt
+# Backend/yolov8n.pt
 Backend/__pycache__/
 __pycache__/
 *.pyc
