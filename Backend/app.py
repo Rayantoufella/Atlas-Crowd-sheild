@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
+import os
 import threading
 import time
 import json
@@ -10,7 +11,15 @@ from config import SQLALCHEMY_DATABASE_URI, SQLALCHEMY_TRACK_MODIFICATIONS
 from database import db
 
 app = Flask(__name__)
-CORS(app, origins=os.getenv("FRONTEND_URL", "*"))
+CORS(
+    app,
+    origins=[
+        r"https://atlas-crowd-sheild.*\.vercel\.app",  # prod + previews Vercel
+        "http://localhost:5173",                        # dev local Vite
+        "http://127.0.0.1:5173",
+    ],
+    supports_credentials=True,
+)
 app.config["SQLALCHEMY_DATABASE_URI"] = SQLALCHEMY_DATABASE_URI
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = SQLALCHEMY_TRACK_MODIFICATIONS
 db.init_app(app)
@@ -21,49 +30,11 @@ from models.alert import Alert
 from models.agent import Agent
 from models.camera import Camera
 
-def _seed_if_empty():
-    if Match.query.count() == 0:
-        match = Match(
-            team_a="Maroc", team_b="Sénégal",
-            stadium="Stade Moulay Abdellah",
-            match_date=datetime(2025, 6, 15, 20, 0),
-            capacity=68700,
-        )
-        db.session.add(match)
-    if Agent.query.count() == 0:
-        agents_data = [
-            Agent(nom="El Amrani", prenom="Yassine", matricule="MR-1041", sector="Est", gateCode="G3", phone="+212 661 11 22 33", status="DEPLOYED"),
-            Agent(nom="Bennani", prenom="Salma", matricule="MR-1042", sector="Nord", gateCode="G1", phone="+212 661 22 33 44", status="DEPLOYED"),
-            Agent(nom="Toumi", prenom="Karim", matricule="MR-1043", sector="Sud", gateCode="G5", phone="+212 661 33 44 55", status="STANDBY"),
-            Agent(nom="Cherkaoui", prenom="Rachid", matricule="MR-1044", sector="Ouest", gateCode="G6", phone="+212 661 44 55 66", status="DEPLOYED"),
-            Agent(nom="Mansouri", prenom="Imane", matricule="MR-1045", sector="Nord-Est", gateCode="G2", phone="+212 661 55 66 77", status="STANDBY"),
-            Agent(nom="Ouali", prenom="Mehdi", matricule="MR-1046", sector="Sud-Est", gateCode="G4", phone="+212 661 66 77 88", status="OFF"),
-        ]
-        db.session.add_all(agents_data)
-    if Camera.query.count() == 0:
-        cams_data = [
-            Camera(zone="Nord", loc="Entree G1 — auvent", resolution="4K", fps=60, status="ACTIVE", lat=33.9716, lng=-6.8498, ip="10.0.1.21"),
-            Camera(zone="Nord-Est", loc="Tribune NE — niveau 2", resolution="4K", fps=60, status="ACTIVE", lat=33.9717, lng=-6.8492, ip="10.0.1.22"),
-            Camera(zone="Est", loc="Couloir VIP Est", resolution="4K", fps=60, status="ACTIVE", lat=33.9718, lng=-6.8488, ip="10.0.1.23"),
-            Camera(zone="Est", loc="Porte 3 — exterieur", resolution="4K", fps=60, status="ACTIVE", lat=33.9719, lng=-6.8487, ip="10.0.1.24"),
-            Camera(zone="Sud-Est", loc="Tribune SE — acces", resolution="1080p", fps=30, status="OFFLINE", lat=33.9714, lng=-6.8489, ip="10.0.1.25"),
-            Camera(zone="Sud", loc="Aire familles", resolution="4K", fps=60, status="ACTIVE", lat=33.9712, lng=-6.8495, ip="10.0.1.26"),
-            Camera(zone="Sud", loc="Sortie urgence Sud", resolution="1080p", fps=30, status="OFFLINE", lat=33.9713, lng=-6.8500, ip="10.0.1.27"),
-            Camera(zone="Ouest", loc="Tribune Ouest — haute", resolution="4K", fps=60, status="ACTIVE", lat=33.9715, lng=-6.8503, ip="10.0.1.28"),
-        ]
-        db.session.add_all(cams_data)
-    db.session.commit()
-
-
+# Crée uniquement les tables manquantes. Ne supprime JAMAIS de données.
+# Le seed initial vit dans seed.py (à lancer manuellement, une seule fois).
 try:
     with app.app_context():
-        conn = db.engine.connect()
-        conn.execute(db.text("DROP TABLE IF EXISTS agent CASCADE"))
-        conn.execute(db.text("DROP TABLE IF EXISTS camera CASCADE"))
-        conn.commit()
-        conn.close()
         db.create_all()
-        _seed_if_empty()
 except Exception as e:
     print(f"WARNING: Database unavailable — {e}")
     print("The app will start but DB-dependent features will not work.")
@@ -222,7 +193,8 @@ def start_demo():
 
 @app.route("/api/match/<int:match_id>/qr")
 def generate_qr(match_id):
-    url = f"http://localhost:5000/supporter/{match_id}"
+    base = os.environ.get("PUBLIC_BASE_URL", "http://localhost:5000")
+    url = f"{base}/supporter/{match_id}"
     qr = qrcode.make(url)
     buf = io.BytesIO()
     qr.save(buf, format="PNG")
@@ -251,7 +223,12 @@ def get_report(match_id):
     })
 
 
+# Démarre le moteur d'alertes en arrière-plan au niveau module, afin qu'il
+# tourne aussi sous gunicorn (prod Render), pas seulement avec `python app.py`.
+_alert_thread = threading.Thread(target=_alert_engine, daemon=True)
+_alert_thread.start()
+
+
 if __name__ == "__main__":
-    _thread = threading.Thread(target=_alert_engine, daemon=True)
-    _thread.start()
-    app.run(port=int(os.getenv("PORT", 5050)))
+    # Dev local uniquement. En prod, c'est gunicorn qui sert l'app (voir Procfile).
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))

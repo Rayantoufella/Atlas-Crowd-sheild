@@ -9,4 +9,3 @@ opencv-python-headless==4.13.0.92
 ultralytics==8.4.60
 numpy==2.4.6
 pillow==12.2.0
-gunicorn
