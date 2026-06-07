@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from '../../lib/icons.jsx';
+import { fetchMatches, fetchMatchSummary, exportMatchPDF } from '../../lib/api.js';
 
 export default function MatchReport() {
   const [matches, setMatches] = useState([]);
@@ -8,23 +9,19 @@ export default function MatchReport() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/match/list')
-      .then((r) => r.json())
-      .then((list) => {
-        setMatches(list);
-        if (list.length > 0 && !selectedId) {
-          setSelectedId(String(list[0].id));
-        }
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    fetchMatches().then((list) => {
+      setMatches(list);
+      if (list.length > 0 && !selectedId) {
+        setSelectedId(String(list[0].id));
+      }
+      setLoading(false);
+    }).catch(() => setLoading(false));
   }, []);
 
   useEffect(() => {
     if (!selectedId) return;
     setLoading(true);
-    fetch(`/api/report/match-summary/${selectedId}`)
-      .then((r) => r.json())
+    fetchMatchSummary(selectedId)
       .then((d) => { setReport(d); setLoading(false); })
       .catch(() => setLoading(false));
   }, [selectedId]);
@@ -67,6 +64,18 @@ export default function MatchReport() {
             </option>
           ))}
         </select>
+        <button onClick={() => selectedId && exportMatchPDF(selectedId)}
+          disabled={!selectedId}
+          style={{
+            padding: '9px 16px', borderRadius: 8, border: '1px solid var(--border-strong)',
+            background: selectedId ? 'var(--bg-2)' : 'var(--bg-1)',
+            color: selectedId ? 'var(--fg-0)' : 'var(--fg-3)',
+            cursor: selectedId ? 'pointer' : 'default', fontFamily: 'inherit',
+            fontSize: 12.5, fontWeight: 600,
+            display: 'inline-flex', alignItems: 'center', gap: 6, flex: 'none',
+          }}>
+          <Icon.Upload size={14} /> Exporter PDF
+        </button>
       </div>
 
       {report && (

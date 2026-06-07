@@ -1,8 +1,25 @@
 import API_BASE from './config.js';
+import { STADIUMS } from './data.js';
 
 async function get(path) {
   const res = await fetch(`${API_BASE}${path}`);
   if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`);
+  return res.json();
+}
+
+async function del(path) {
+  const res = await fetch(`${API_BASE}${path}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`DELETE ${path} failed: ${res.status}`);
+  return res.json();
+}
+
+async function put(path, body) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`PUT ${path} failed: ${res.status}`);
   return res.json();
 }
 
@@ -73,21 +90,35 @@ export async function fetchLiveState() {
   };
 }
 
+const STADIUM_IDS = {
+  'moulay abdellah': 'moulay',
+  'grand stade casablanca': 'casablanca',
+  'ibn batouta': 'tanger',
+  'grand stade agadir': 'agadir',
+};
+
 export async function fetchMatches() {
   const data = await get('/api/match/list');
-  return data.map((m, i) => ({
-    id: `m-${String(i + 1).padStart(3, '0')}`,
-    teamA: m.team_a === 'Maroc' ? 'MA' : m.team_a,
-    teamB: m.team_b === 'Sénégal' ? 'SN' : m.team_b,
-    competition: 'CAN 2025',
-    datetime: m.match_date,
-    stadiumId: 'moulay',
-    capAuth: m.capacity,
-    camerasActive: 48,
-    gatesActive: 6,
-    agents: 1847,
-    status: m.status || 'UPCOMING',
-  }));
+  return data.map((m) => {
+    const sid = STADIUM_IDS[(m.stadium || '').toLowerCase()] || m.stadium;
+    const st = STADIUMS.find((s) => s.id === sid);
+    return {
+      id: m.id,
+      backendId: m.id,
+      teamA: m.team_a,
+      teamB: m.team_b,
+      competition: m.competition || 'CAN 2025',
+      datetime: m.match_date,
+      stadiumId: sid,
+      stadium: m.stadium,
+      capAuth: m.capacity,
+      capacity: m.capacity,
+      camerasActive: st?.cameras || 0,
+      gatesActive: st?.gates || 0,
+      agents: 0,
+      status: m.status || 'UPCOMING',
+    };
+  });
 }
 
 export async function createMatch(data) {
@@ -135,6 +166,19 @@ export async function fetchMatchSummary(matchId) {
   return get(`/api/report/match-summary/${matchId}`);
 }
 
+export async function createIncident(data) {
+  return post('/api/report/incidents', data);
+}
+
+export function exportIncidentsPDF(params = {}) {
+  const qs = new URLSearchParams(params).toString();
+  window.open(`${API_BASE}/api/report/incidents/export${qs ? '?' + qs : ''}`, '_blank');
+}
+
+export function exportMatchPDF(matchId) {
+  window.open(`${API_BASE}/api/report/match-summary/${matchId}/export`, '_blank');
+}
+
 export async function fetchSettings() {
   return get('/api/settings');
 }
@@ -151,4 +195,46 @@ export async function saveSettings(data) {
 
 export function gateStateFromRiskScore(risk) {
   return gateStateFromRisk(risk);
+}
+
+/* ---- Admin CRUD helpers ---- */
+
+export async function updateMatch(id, data) {
+  return put(`/api/match/${id}`, data);
+}
+
+export async function deleteMatch(id) {
+  return del(`/api/match/${id}`);
+}
+
+export async function createCamera(data) {
+  return post('/api/camera/create', data);
+}
+
+export async function updateCamera(id, data) {
+  return put(`/api/camera/${id}`, data);
+}
+
+export async function deleteCamera(id) {
+  return del(`/api/camera/${id}`);
+}
+
+export async function createAgent(data) {
+  return post('/api/agent/create', data);
+}
+
+export async function updateAgent(id, data) {
+  return put(`/api/agent/${id}`, data);
+}
+
+export async function deleteAgent(id) {
+  return del(`/api/agent/${id}`);
+}
+
+export async function fetchZones() {
+  return get('/api/zones');
+}
+
+export async function updateZone(gateId, data) {
+  return put(`/api/zones/${gateId}`, data);
 }

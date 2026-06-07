@@ -8,8 +8,8 @@ import Toast, { useToast } from '../../components/Toast.jsx';
 import {
   TextField, NumberField, SelectField, Toggle, FormGrid,
 } from '../../components/FormField.jsx';
-import { SECTORS, SEED_CAMERAS, CAMERA_RESOLUTIONS, CAMERA_FPS } from '../../lib/data.js';
-import { fetchCameras } from '../../lib/api.js';
+import { SECTORS, CAMERA_RESOLUTIONS, CAMERA_FPS } from '../../lib/data.js';
+import { fetchCameras, createCamera, updateCamera, deleteCamera } from '../../lib/api.js';
 
 const emptyCam = () => ({
   id: '', zone: 'Nord', loc: '',
@@ -18,36 +18,42 @@ const emptyCam = () => ({
 });
 
 export default function Cameras() {
-  const [cams, setCams] = useState(SEED_CAMERAS);
+  const [cams, setCams] = useState([]);
   const [edit, setEdit] = useState(null);
   const [editInit, setEditInit] = useState(null);
   const [flux, setFlux] = useState(null);
   const [del, setDel] = useState(null);
   const { toast, show, hide } = useToast();
 
-  useEffect(() => {
-    fetchCameras().then(setCams).catch(() => {});
-  }, []);
+  const refresh = () => {
+    fetchCameras().then((data) => {
+      setCams(data.map((c) => ({ ...c, backendId: parseInt(c.id.replace('CAM-', '')) })));
+    }).catch(() => {});
+  };
+
+  useEffect(() => { refresh(); }, []);
 
   const toggleStatus = (id) => {
-    setCams((arr) => arr.map((c) =>
-      c.id === id ? { ...c, status: c.status === 'ACTIVE' ? 'OFFLINE' : 'ACTIVE' } : c
-    ));
+    const c = cams.find((x) => x.id === id);
+    if (!c) return;
+    updateCamera(c.backendId, { status: c.status === 'ACTIVE' ? 'OFFLINE' : 'ACTIVE' })
+      .then(refresh).catch(() => {});
   };
 
   const save = (cam) => {
+    const body = { zone: cam.zone, loc: cam.loc, lat: cam.lat, lng: cam.lng, resolution: cam.resolution, fps: cam.fps, ip: cam.ip, status: cam.status };
     if (editInit?.id) {
-      setCams((arr) => arr.map((c) => c.id === editInit.id ? cam : c));
+      updateCamera(editInit.backendId, body).then(refresh).catch(() => {});
       show(`Caméra ${cam.id} modifiée`);
     } else {
-      setCams((arr) => [...arr, cam]);
+      createCamera(body).then(refresh).catch(() => {});
       show(`Caméra ${cam.id} ajoutée`);
     }
     setEdit(null);
   };
 
   const onDelete = () => {
-    setCams((arr) => arr.filter((c) => c.id !== del.id));
+    deleteCamera(del.backendId).then(refresh).catch(() => {});
     show(`Caméra ${del.id} supprimée`);
     setDel(null);
   };

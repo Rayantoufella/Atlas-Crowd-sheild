@@ -1,23 +1,30 @@
-// Admin shell — left sidebar with 5 items, right content area.
-import React from 'react';
+// Admin shell — left sidebar driven by SECTIONS config, right content area.
+import React, { useState, useEffect } from 'react';
 import { Icon } from '../lib/icons.jsx';
-import Matchs from './admin/Matchs.jsx';
-import Cameras from './admin/Cameras.jsx';
-import Agents from './admin/Agents.jsx';
-import Portes from './admin/Portes.jsx';
-import Parametres from './admin/Parametres.jsx';
+import { fetchCameras, fetchAgents, fetchMatches } from '../lib/api.js';
 
 const SECTIONS = [
-  { key: 'matchs',     label: 'Matchs',     icon: <Icon.Trophy size={16} />, badge: 3 },
-  { key: 'cameras',    label: 'Caméras',    icon: <Icon.Camera size={16} />, badge: 8 },
-  { key: 'agents',     label: 'Agents',     icon: <Icon.Users size={16} />, badge: 6 },
-  { key: 'portes',     label: 'Portes',     icon: <Icon.Door size={16} />, badge: 6 },
-  { key: 'parametres', label: 'Paramètres', icon: <Icon.Settings size={16} /> },
+  { key: 'matchs',     label: 'Matchs',     icon: <Icon.Trophy size={16} />, comp: React.lazy(() => import('./admin/Matchs.jsx')) },
+  { key: 'cameras',    label: 'Caméras',    icon: <Icon.Camera size={16} />, comp: React.lazy(() => import('./admin/Cameras.jsx')) },
+  { key: 'agents',     label: 'Agents',     icon: <Icon.Users size={16} />, comp: React.lazy(() => import('./admin/Agents.jsx')) },
+  { key: 'portes',     label: 'Portes',     icon: <Icon.Door size={16} />, comp: React.lazy(() => import('./admin/Portes.jsx')) },
+  { key: 'parametres', label: 'Paramètres', icon: <Icon.Settings size={16} />, comp: React.lazy(() => import('./admin/Parametres.jsx')) },
 ];
 
 export default function Admin({ section, navigate }) {
+  const [badges, setBadges] = useState({ matchs: 0, cameras: 0, agents: 0, portes: 6 });
+
+  const fetchBadges = () => {
+    fetchMatches().then((d) => setBadges((b) => ({ ...b, matchs: d.length }))).catch(() => {});
+    fetchCameras().then((d) => setBadges((b) => ({ ...b, cameras: d.length }))).catch(() => {});
+    fetchAgents().then((d) => setBadges((b) => ({ ...b, agents: d.length }))).catch(() => {});
+  };
+
+  useEffect(() => { fetchBadges(); }, []);
+
   const active = section || 'matchs';
   const go = (k) => navigate(`/admin/${k}`);
+  const ActiveComp = SECTIONS.find((s) => s.key === active)?.comp;
 
   return (
     <main style={{
@@ -55,13 +62,13 @@ export default function Admin({ section, navigate }) {
             >
               <span style={{ color: isActive ? 'var(--red-2)' : 'var(--fg-2)' }}>{s.icon}</span>
               <span style={{ flex: 1 }}>{s.label}</span>
-              {s.badge != null && (
+              {badges[s.key] != null && (
                 <span style={{
                   fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 600,
                   padding: '2px 7px', borderRadius: 99,
                   background: 'var(--bg-3)', color: 'var(--fg-2)',
                   border: '1px solid var(--border)',
-                }}>{s.badge}</span>
+                }}>{badges[s.key]}</span>
               )}
             </button>
           );
@@ -82,11 +89,9 @@ export default function Admin({ section, navigate }) {
 
       {/* Content */}
       <section>
-        {active === 'matchs'     && <Matchs />}
-        {active === 'cameras'    && <Cameras />}
-        {active === 'agents'     && <Agents />}
-        {active === 'portes'     && <Portes />}
-        {active === 'parametres' && <Parametres />}
+        {ActiveComp && <React.Suspense fallback={<div style={{padding:40,textAlign:'center',color:'var(--fg-2)'}}>Chargement...</div>}>
+          <ActiveComp />
+        </React.Suspense>}
       </section>
     </main>
   );
