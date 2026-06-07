@@ -4,6 +4,7 @@ import React from 'react';
 import { useHashRouter } from './lib/router.js';
 import NavBar from './components/NavBar.jsx';
 import Dashboard from './pages/Dashboard.jsx';
+import Ops from './pages/Ops.jsx';
 import Admin from './pages/Admin.jsx';
 import ReportsDashboard from './pages/ReportsDashboard.jsx';
 import Forensic from './pages/Forensic.jsx';
@@ -24,7 +25,8 @@ export default function App() {
   return (
     <div style={{ minWidth: 1140, position: 'relative', zIndex: 1 }}>
       <NavBar activeTab={activeTab} onTab={goSection} />
-      {(page === 'dashboard' || page === 'ops') && <Dashboard />}
+      {page === 'dashboard' && <Dashboard />}
+      {page === 'ops' && <Ops />}
       {page === 'forensic' && <Forensic />}
       {page === 'admin' && <Admin section={segments[1]} navigate={navigate} />}
       {page === 'reports' && <ReportsDashboard section={segments[1]} navigate={navigate} />}

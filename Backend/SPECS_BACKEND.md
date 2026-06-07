@@ -41,10 +41,6 @@ backend/
 │   ├── zones.py
 │   ├── alerts.py
 │   └── supporter.py
-├── algo/
-│   ├── yolo_detector.py
-│   ├── density_estimator.py
-│   └── risk_calculator.py
 ├── simulation/
 │   └── demo_scenario.json
 └── requirements.txt

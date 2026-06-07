@@ -57,9 +57,10 @@ ALLOWED_EXT = {".mp4", ".avi", ".mov", ".mkv", ".webm"}
 MAX_SIZE_MB = 500
 MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024
 
-CAMERA_VIDEOS = {
-    0: r"C:\Users\jdira\Downloads\WhatsApp Video 2026-06-06 at 17.09.05.mp4",
-}
+VIDEO_DEFAULT = r"C:\Users\jdira\Downloads\WhatsApp Video 2026-06-06 at 17.09.05.mp4"
+VIDEO_NORMAL = r"C:\Users\jdira\Downloads\normal.mp4"
+CAMERA_VIDEOS = {i: VIDEO_DEFAULT for i in range(24)}
+CAMERA_VIDEOS[3] = VIDEO_NORMAL
 
 
 @forensic_bp.route("/api/forensic/auto-analyze", methods=["POST"])

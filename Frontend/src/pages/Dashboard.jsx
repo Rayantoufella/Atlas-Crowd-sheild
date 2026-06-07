@@ -5,10 +5,8 @@
 // social-impact tiles, field-agent bars + toast notifications.
 // All design markup/logic lives here; styles are scoped under `.acs`.
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { createPortal } from 'react-dom';
 import StadiumMap from '../components/StadiumMap';
-import { fetchLiveState, fetchCameras, fetchAgents, fetchEvents } from '../lib/api.js';
-import { useHashRouter } from '../lib/router.js';
+import { fetchLiveState, fetchCameras, fetchAgents, fetchEvents, startDemo, fetchSettings } from '../lib/api.js';
 
 const CSS = `
 .acs {
@@ -276,35 +274,28 @@ const CSS = `
 .acs-crit-inspect:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(239,68,68,0.5); }
 `;
 
-const ZONE_CAMERAS = {
-  G1: [0, 1], G2: [3, 4, 5], G3: [7, 8, 9],
-  G4: [11, 12, 13], G5: [15, 16, 17], G6: [19, 20, 21],
-};
-
 export default function Dashboard() {
   const rootRef = useRef(null);
   const [live, setLive] = useState(null);
   const [cameras, setCameras] = useState([]);
   const [agents, setAgents] = useState([]);
   const [events, setEvents] = useState([]);
-  const [criticalAlert, setCriticalAlert] = useState(null);
-  const criticalAlertRef = useRef(criticalAlert);
-  criticalAlertRef.current = criticalAlert;
-  const { navigate } = useHashRouter();
+  const [demoLoading, setDemoLoading] = useState(false);
+  const [demoStarted, setDemoStarted] = useState(false);
+  const [riskThreshold, setRiskThreshold] = useState(80);
+  const [warnThreshold, setWarnThreshold] = useState(65);
 
   /* refs so timer callbacks can always read the latest values */
   const liveRef = useRef(live);
   liveRef.current = live;
   const eventsRef = useRef(events);
   eventsRef.current = events;
+  const thresholdsRef = useRef({ riskThreshold, warnThreshold });
+  thresholdsRef.current = { riskThreshold, warnThreshold };
 
   const fetchAll = () => {
     fetchLiveState().then((data) => {
       setLive(data);
-      if (!criticalAlertRef.current) {
-        const crit = data.zones?.find((z) => z.risk >= 80);
-        if (crit) setCriticalAlert(crit);
-      }
     }).catch(() => {});
     fetchCameras().then(setCameras).catch(() => {});
     fetchAgents().then(setAgents).catch(() => {});
@@ -313,6 +304,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchAll();
+    fetchSettings().then((s) => {
+      if (s.riskThreshold) setRiskThreshold(s.riskThreshold);
+      if (s.warnThreshold) setWarnThreshold(s.warnThreshold);
+    }).catch(() => {});
     const id = setInterval(fetchAll, 3000);
     return () => clearInterval(id);
   }, []);
@@ -439,7 +434,8 @@ export default function Dashboard() {
       const render = (risk) => {
         valEl.innerHTML = Math.round(risk) + '<span style="font-size:18px;">%</span>';
         ringEl.setAttribute('stroke-dashoffset', CIRC * (1 - risk / 100));
-        const c = risk >= 70 ? 'var(--danger)' : risk >= 50 ? 'var(--warning)' : 'var(--safe)';
+        const t = thresholdsRef.current;
+        const c = risk >= t.riskThreshold ? 'var(--danger)' : risk >= t.warnThreshold ? 'var(--warning)' : 'var(--safe)';
         ringEl.setAttribute('stroke', c);
         valEl.style.color = c;
       };
@@ -560,6 +556,26 @@ export default function Dashboard() {
             <div className="match-info">
               <div className="meta">{live?.match || 'AFCON 2025'} · {live?.match_status === 'LIVE' ? 'En direct' : live?.match_status || 'En attente'} · Capacité {s?.supporters_inside?.toLocaleString() || '68 700'}</div>
             </div>
+            <div style={{ marginLeft: 'auto' }}>
+              <button
+                className={'btn' + (demoStarted ? ' btn-primary done' : ' btn-ghost')}
+                disabled={demoLoading}
+                onClick={async () => {
+                  setDemoLoading(true);
+                  try {
+                    await startDemo();
+                    setDemoStarted(true);
+                  } catch (e) {
+                    console.error('Demo failed:', e);
+                  } finally {
+                    setDemoLoading(false);
+                  }
+                }}
+                style={{ fontSize: 11.5, padding: '7px 14px' }}
+              >
+                {demoLoading ? 'Starting…' : demoStarted ? '✓ Demo Running' : '▶ Start Demo'}
+              </button>
+            </div>
           </div>
 
           {/* MAIN */}
@@ -624,7 +640,7 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <div className="stadium-svg-wrap">
-                  <StadiumMap zones={live?.zones} />
+                  <StadiumMap zones={live?.zones} riskThreshold={riskThreshold} warnThreshold={warnThreshold} />
                 </div>
               </div>
 
@@ -711,30 +727,6 @@ export default function Dashboard() {
       </div>
 
       <div id="acs-toast-wrap"></div>
-      {criticalAlert && createPortal(
-        <div className="acs-crit-overlay" onClick={() => setCriticalAlert(null)}>
-          <div className="acs-crit-card" onClick={(e) => e.stopPropagation()}>
-            <div className="acs-crit-title">⚠ CRITICAL ZONE DETECTED</div>
-            <div>
-              <div className="acs-crit-zone">{criticalAlert.fr}</div>
-              <div className="acs-crit-pct">{criticalAlert.risk}% risk</div>
-            </div>
-            <div className="acs-crit-cams">
-              Cameras {(ZONE_CAMERAS[criticalAlert.code] || []).join(', ')} — {criticalAlert.fr}
-            </div>
-            <div className="acs-crit-cams" style={{ color: '#8a98b0', fontSize: 11 }}>
-              Immediate attention required. Inspect camera feed for this sector.
-            </div>
-            <div className="acs-crit-actions">
-              <button className="acs-crit-dismiss" onClick={() => setCriticalAlert(null)}>Dismiss</button>
-              <button className="acs-crit-inspect" onClick={() => { setCriticalAlert(null); navigate('/forensic'); }}>
-                🎥 Inspect Feed
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
     </div>
   );
 }

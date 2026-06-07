@@ -145,13 +145,6 @@ export async function fetchEvents() {
   return get('/api/event/latest');
 }
 
-export async function logEvent(data) {
-  return post('/api/event/log', data);
-}
-
-export async function fetchReport(matchId) {
-  return get(`/api/report/${matchId}`);
-}
 
 export async function fetchIncidents(params = {}) {
   const qs = new URLSearchParams(params).toString();

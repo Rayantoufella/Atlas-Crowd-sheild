@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Icon } from '../../lib/icons.jsx';
 import { Button } from '../../components/Button.jsx';
 import { Badge } from '../../components/Badge.jsx';
@@ -6,7 +6,7 @@ import Toast, { useToast } from '../../components/Toast.jsx';
 import {
   TextField, SelectField, Toggle, Slider, FormGrid,
 } from '../../components/FormField.jsx';
-import { fetchSettings, saveSettings } from '../../lib/api.js';
+import { fetchSettings, saveSettings, fetchLiveState } from '../../lib/api.js';
 
 const MODE_PRESETS = {
   fast:   { weight_velocity: 35, weight_accel: 20, weight_proximity: 25, weight_object: 20, conf_threshold: 15 },
@@ -191,6 +191,8 @@ export default function Parametres() {
             </div>
           </Section>
 
+          <ZonePreview riskThreshold={cfg.riskThreshold} warnThreshold={cfg.warnThreshold} />
+
           <Divider />
 
           <Section title="QUALITÉ IMAGE" subtitle="Résolution et compression du flux et des captures">
@@ -280,6 +282,79 @@ export default function Parametres() {
       </div>
 
       <Toast message={toast} onClose={hide} />
+    </div>
+  );
+}
+
+const ZONE_NAMES = [
+  { id: 'G1', name: 'Porte 1 Nord', fr: 'Nord' },
+  { id: 'G2', name: 'Porte 2 N-E', fr: 'Nord-Est' },
+  { id: 'G3', name: 'Porte 3 Est', fr: 'Est' },
+  { id: 'G4', name: 'Porte 4 S-E', fr: 'Sud-Est' },
+  { id: 'G5', name: 'Porte 5 Sud', fr: 'Sud' },
+  { id: 'G6', name: 'Porte 6 Ouest', fr: 'Ouest' },
+];
+
+function ZonePreview({ riskThreshold, warnThreshold }) {
+  const [zones, setZones] = useState(null);
+  useEffect(() => {
+    fetchLiveState().then((data) => setZones(data.zones)).catch(() => {});
+  }, []);
+
+  const items = useMemo(() => {
+    if (!zones) return null;
+    return zones.map((z, i) => {
+      const r = z.risk;
+      const label = r >= riskThreshold ? 'CRITICAL' : r >= warnThreshold ? 'WARNING' : r >= 50 ? 'WATCH' : 'SAFE';
+      const color = r >= riskThreshold ? '#ef4444' : r >= warnThreshold ? '#f59e0b' : '#22c55e';
+      return { ...ZONE_NAMES[i] || ZONE_NAMES[0], pct: r, label, color };
+    });
+  }, [zones, riskThreshold, warnThreshold]);
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div className="eyebrow" style={{ marginBottom: 6 }}>APERÇU ZONES</div>
+      <div className="fr" style={{ marginBottom: 8 }}>
+        Coloration selon les seuils actuels — {items?.length || 0} zones
+      </div>
+      {items ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {items.map((item) => (
+            <div key={item.id} style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '6px 10px', borderRadius: 8,
+              background: 'var(--bg-2)', fontSize: 12,
+            }}>
+              <span style={{ width: 100, fontWeight: 600, fontSize: 11.5 }}>{item.name}</span>
+              <div style={{
+                flex: 1, height: 6, borderRadius: 4,
+                background: 'rgba(255,255,255,0.08)', overflow: 'hidden',
+              }}>
+                <div style={{
+                  width: `${item.pct}%`, height: '100%', borderRadius: 4,
+                  background: item.color,
+                  boxShadow: `0 0 6px ${item.color}66`,
+                  transition: 'all 0.2s',
+                }} />
+              </div>
+              <span style={{
+                width: 36, textAlign: 'right', fontFamily: 'var(--font-mono)',
+                fontWeight: 700, fontSize: 11.5, color: item.color,
+              }}>{item.pct}%</span>
+              <span style={{
+                padding: '2px 7px', borderRadius: 4, fontSize: 9.5,
+                fontWeight: 800, letterSpacing: '0.08em',
+                color: item.color, background: `${item.color}22`,
+                minWidth: 60, textAlign: 'center',
+              }}>{item.label}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="fr" style={{ fontSize: 12, color: 'var(--fg-3)', padding: '12px 0' }}>
+          Aucune donnée live
+        </div>
+      )}
     </div>
   );
 }

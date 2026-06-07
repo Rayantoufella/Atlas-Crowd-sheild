@@ -104,25 +104,7 @@ const CSS = `
 .sm-list .li .dr { font-size: 11px; color: #8a98b0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sm-list .li .pc { font: 700 13px "JetBrains Mono", monospace; text-align: right; }
 .sm-list .li .st { font-size: 9.5px; font-weight: 800; letter-spacing: 0.06em; text-align: right; }
-/* critical alert overlay inside modal */
-.sm-crit-overlay { position: absolute; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center;
-  background: rgba(4,8,16,0.6); backdrop-filter: blur(6px); animation: sm-fade 0.2s ease; }
-.sm-crit-card { width: 340px; padding: 28px; border-radius: 18px;
-  background: linear-gradient(135deg, rgba(40,16,24,0.92), rgba(20,8,12,0.94));
-  border: 1px solid rgba(239,68,68,0.35); box-shadow: 0 0 60px rgba(239,68,68,0.15);
-  display: flex; flex-direction: column; gap: 14px; }
-.sm-crit-title { font: 800 16px var(--sans, sans-serif); letter-spacing: 0.08em; color: var(--danger, #ef4444); display: flex; align-items: center; gap: 8px; }
-.sm-crit-zone { font: 700 22px "JetBrains Mono", monospace; color: #fff; }
-.sm-crit-pct { font: 800 14px "JetBrains Mono", monospace; color: var(--danger, #ef4444); }
-.sm-crit-cams { font-size: 12px; color: #9aa7bc; }
-.sm-crit-actions { display: flex; gap: 10px; margin-top: 4px; }
-.sm-crit-dismiss, .sm-crit-inspect { flex: 1; padding: 11px 0; border-radius: 10px; border: none;
-  font: 700 13px var(--sans, sans-serif); cursor: pointer; transition: all 0.15s; }
-.sm-crit-dismiss { background: rgba(255,255,255,0.08); color: #cdd8ea; }
-.sm-crit-dismiss:hover { background: rgba(255,255,255,0.14); }
-.sm-crit-inspect { background: linear-gradient(135deg, var(--danger, #ef4444), #dc2626); color: #fff;
-  box-shadow: 0 4px 20px rgba(239,68,68,0.35); }
-.sm-crit-inspect:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(239,68,68,0.5); }
+/* sm-crit-halo is used on the SVG halo ring for critical zones */
 `;
 
 const C = {
@@ -132,11 +114,12 @@ const C = {
   crit: '#ef4444',
   gateBg: '#1a2744',
 };
-const statusOf = (pct) =>
-  pct >= 80 ? { label: 'CRITICAL', color: C.crit }
-  : pct >= 65 ? { label: 'WARNING', color: C.warn }
-  : pct >= 50 ? { label: 'WATCH', color: C.warn }
-  : { label: 'SAFE', color: C.safe };
+function sectorStatus(pct, riskThreshold, warnThreshold) {
+  if (pct >= riskThreshold) return { label: 'CRITICAL', color: C.crit };
+  if (pct >= warnThreshold) return { label: 'WARNING', color: C.warn };
+  if (pct >= 50) return { label: 'WATCH', color: C.warn };
+  return { label: 'SAFE', color: C.safe };
+}
 
 // Geometry (SVG user units, viewBox 0 0 900 620).
 const CX = 450, CY = 305;
@@ -169,18 +152,19 @@ const BASE_SECTORS = [
   { id: 'P6', n: 6, gate: 'Nord-Ouest', c: 210, cams: 8, agents: 168, cap: 11200, cameraIndices: [19, 20, 21] },
 ];
 const HARDCODED_PCTS = [28, 39, 82, 61, 35, 71];
+const DFLT_RISK = 80, DFLT_WARN = 65;
 const DEFAULT_SECTORS = BASE_SECTORS.map((s, i) => {
   const pct = HARDCODED_PCTS[i];
-  const color = pct >= 80 ? C.crit : pct >= 65 ? C.warn : C.safe;
-  return { ...s, pct, color, critical: pct >= 80 };
+  const st = sectorStatus(pct, DFLT_RISK, DFLT_WARN);
+  return { ...s, pct, color: st.color, critical: st.label === 'CRITICAL', label: st.label };
 });
 
-function buildSectors(zones) {
+function buildSectors(zones, riskThreshold = DFLT_RISK, warnThreshold = DFLT_WARN) {
   if (!zones || zones.length === 0) return DEFAULT_SECTORS;
   return BASE_SECTORS.map((s, i) => {
     const pct = zones[i]?.risk ?? HARDCODED_PCTS[i];
-    const color = pct >= 80 ? C.crit : pct >= 65 ? C.warn : C.safe;
-    return { ...s, pct, color, critical: pct >= 80 };
+    const st = sectorStatus(pct, riskThreshold, warnThreshold);
+    return { ...s, pct, color: st.color, critical: st.label === 'CRITICAL', label: st.label };
   });
 }
 const TIERS = [[0.50, 0.66], [0.68, 0.83], [0.85, 1.0]];
@@ -365,7 +349,6 @@ function StadiumScene({ onGateClick, selectedId, sectors, onCameraClick }) {
         const padX = 13;
         const colR = 50;                // fixed width of the right (% / status) column
         const divX = bx + w / 2 - colR; // vertical divider: left = name column, right = % column
-        const st = statusOf(g.pct);
         return (
           <g key={g.id} style={interactive ? { cursor: 'pointer' } : undefined}
             onClick={interactive ? (e) => { e.stopPropagation(); onGateClick(g); } : undefined}>
@@ -384,7 +367,7 @@ function StadiumScene({ onGateClick, selectedId, sectors, onCameraClick }) {
             <text x={bx + w / 2 - padX} y={by - 5} textAnchor="end" fill={g.color} fontSize="20"
               fontWeight="800" fontFamily='"JetBrains Mono", monospace'>{g.pct}%</text>
             <text x={bx + w / 2 - padX} y={by + 11} textAnchor="end" fill="rgba(255,255,255,0.6)"
-              fontSize="8" fontWeight="800" letterSpacing="0.06em">{st.label}</text>
+              fontSize="8" fontWeight="800" letterSpacing="0.06em">{g.label}</text>
           </g>
         );
       })}
@@ -394,18 +377,17 @@ function StadiumScene({ onGateClick, selectedId, sectors, onCameraClick }) {
 
 // ---------------------------------------------------------------------------
 function GateDetail({ s, onCameraClick }) {
-  const st = statusOf(s.pct);
   const inside = Math.round(s.cap * s.pct / 100);
   const flow = s.critical ? '+14%' : s.pct >= 60 ? '+9%' : '−3%';
   return (
-    <div className="sm-gatecard" style={{ borderColor: `${st.color}55` }}>
+    <div className="sm-gatecard" style={{ borderColor: `${s.color}55` }}>
       <div className="gc-top">
-        <div><span className="gc-id" style={{ color: st.color }}>{`PORTE ${s.n}`}</span>{' '}
+        <div><span className="gc-id" style={{ color: s.color }}>{`PORTE ${s.n}`}</span>{' '}
           <span className="gc-dir">{s.gate}</span></div>
-        <span className="gc-pct" style={{ color: st.color }}>{s.pct}%</span>
+        <span className="gc-pct" style={{ color: s.color }}>{s.pct}%</span>
       </div>
-      <span className="gc-badge" style={{ color: st.color, background: `${st.color}22` }}>{st.label}</span>
-      <div className="gc-bar"><i style={{ width: `${s.pct}%`, background: st.color, boxShadow: `0 0 8px ${st.color}88` }} /></div>
+      <span className="gc-badge" style={{ color: s.color, background: `${s.color}22` }}>{s.label}</span>
+      <div className="gc-bar"><i style={{ width: `${s.pct}%`, background: s.color, boxShadow: `0 0 8px ${s.color}88` }} /></div>
       <div className="sm-stats">
         <div className="sm-stat"><div className="k">Occupancy</div><div className="v">{inside.toLocaleString('en-US')}</div></div>
         <div className="sm-stat"><div className="k">Capacity</div><div className="v">{s.cap.toLocaleString('en-US')}</div></div>
@@ -418,23 +400,19 @@ function GateDetail({ s, onCameraClick }) {
   );
 }
 
-export default function StadiumMap({ zones }) {
+export default function StadiumMap({ zones, riskThreshold = DFLT_RISK, warnThreshold = DFLT_WARN }) {
   const [open, setOpen] = useState(false);
-  const sectors = useMemo(() => buildSectors(zones), [zones]);
+  const sectors = useMemo(() => buildSectors(zones, riskThreshold, warnThreshold), [zones, riskThreshold, warnThreshold]);
   const [selId, setSelId] = useState('P3');
   const sel = sectors.find((s) => s.id === selId) || sectors[0];
-  const [criticalAlert, setCriticalAlert] = useState(null);
   const { navigate } = useHashRouter();
   const onCameraClick = (i) => navigate(`/forensic/cam-${i}`);
 
   const handleOpen = () => {
     setOpen(true);
-    const crit = sectors.find((s) => s.critical);
-    if (crit) setCriticalAlert(crit);
   };
   const handleClose = () => {
     setOpen(false);
-    setCriticalAlert(null);
   };
 
   return (
@@ -477,44 +455,19 @@ export default function StadiumMap({ zones }) {
                   <span className="r">Occ.</span>
                   <span className="r">Statut</span>
                 </div>
-                {sectors.map((s) => {
-                  const st = statusOf(s.pct);
-                  return (
-                    <div key={s.id} className={`li ${s.id === selId ? 'active' : ''}`} onClick={() => setSelId(s.id)}>
-                      <i style={{ background: st.color, boxShadow: `0 0 7px ${st.color}` }} />
-                      <span className="nm">Porte {s.n}</span>
-                      <span className="dr">{s.gate}</span>
-                      <span className="pc" style={{ color: st.color }}>{s.pct}%</span>
-                      <span className="st" style={{ color: st.color }}>{st.label}</span>
-                    </div>
-                  );
-                })}
+                {sectors.map((s) => (
+                  <div key={s.id} className={`li ${s.id === selId ? 'active' : ''}`} onClick={() => setSelId(s.id)}>
+                    <i style={{ background: s.color, boxShadow: `0 0 7px ${s.color}` }} />
+                    <span className="nm">Porte {s.n}</span>
+                    <span className="dr">{s.gate}</span>
+                    <span className="pc" style={{ color: s.color }}>{s.pct}%</span>
+                    <span className="st" style={{ color: s.color }}>{s.label}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
-          {criticalAlert && (
-            <div className="sm-crit-overlay">
-              <div className="sm-crit-card">
-                <div className="sm-crit-title">⚠ CRITICAL ZONE</div>
-                <div>
-                  <div className="sm-crit-zone">Porte {criticalAlert.n} · {criticalAlert.gate}</div>
-                  <div className="sm-crit-pct">{criticalAlert.pct}% occupancy</div>
-                </div>
-                <div className="sm-crit-cams">
-                  Cameras {criticalAlert.cameraIndices.join(', ')} — {criticalAlert.gate} sector
-                </div>
-                <div className="sm-crit-cams" style={{ color: '#8a98b0', fontSize: 11 }}>
-                  Immediate attention required.
-                </div>
-                <div className="sm-crit-actions">
-                  <button className="sm-crit-dismiss" onClick={() => setCriticalAlert(null)}>Dismiss</button>
-                  <button className="sm-crit-inspect" onClick={() => { setCriticalAlert(null); onCameraClick(criticalAlert.cameraIndices[0]); }}>
-                    🎥 Inspect Feed
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+
         </div>,
         document.body
       )}
