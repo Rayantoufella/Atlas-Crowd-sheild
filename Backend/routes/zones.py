@@ -12,11 +12,11 @@ current_state = None
 
 DEFAULT_ZONES = [
     {"id": "gate_1", "label": "Porte 1 Nord", "risk": 28, "status": "safe", "density": "low"},
-    {"id": "gate_2", "label": "Porte 2 Nord-Est", "risk": 22, "status": "safe", "density": "low"},
-    {"id": "gate_3", "label": "Porte 3 Est", "risk": 20, "status": "safe", "density": "low"},
-    {"id": "gate_4", "label": "Porte 4 Sud", "risk": 31, "status": "safe", "density": "low"},
-    {"id": "gate_5", "label": "Porte 5 Ouest", "risk": 18, "status": "safe", "density": "low"},
-    {"id": "gate_6", "label": "Porte 6 Nord-Ouest", "risk": 25, "status": "safe", "density": "low"},
+    {"id": "gate_2", "label": "Porte 2 Nord-Est", "risk": 39, "status": "safe", "density": "low"},
+    {"id": "gate_3", "label": "Porte 3 Est", "risk": 82, "status": "critical", "density": "high"},
+    {"id": "gate_4", "label": "Porte 4 Sud", "risk": 61, "status": "warning", "density": "medium"},
+    {"id": "gate_5", "label": "Porte 5 Ouest", "risk": 35, "status": "safe", "density": "low"},
+    {"id": "gate_6", "label": "Porte 6 Nord-Ouest", "risk": 71, "status": "warning", "density": "medium"},
 ]
 
 
