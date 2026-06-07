@@ -10,7 +10,7 @@ from config import SQLALCHEMY_DATABASE_URI, SQLALCHEMY_TRACK_MODIFICATIONS
 from database import db
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=os.getenv("FRONTEND_URL", "*"))
 app.config["SQLALCHEMY_DATABASE_URI"] = SQLALCHEMY_DATABASE_URI
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = SQLALCHEMY_TRACK_MODIFICATIONS
 db.init_app(app)
@@ -254,4 +254,4 @@ def get_report(match_id):
 if __name__ == "__main__":
     _thread = threading.Thread(target=_alert_engine, daemon=True)
     _thread.start()
-    app.run(debug=True, port=5050)
+    app.run(port=int(os.getenv("PORT", 5050)))

@@ -1,15 +1,8 @@
 Backend/uploads/
 Backend/yolov8n.pt
-Backend/analyzer/__pycache__/
-Backend/routes/__pycache__/
-node_modules/
-
-# Python bytecode
+Backend/__pycache__/
 __pycache__/
 *.pyc
-
-# Logs
 *.log
-
-# Temp files
+node_modules/
 nul
