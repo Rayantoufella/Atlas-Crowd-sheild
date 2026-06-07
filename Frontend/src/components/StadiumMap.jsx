@@ -90,15 +90,19 @@ const CSS = `
 .sm-stat { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; padding: 12px 14px; }
 .sm-stat .k { font-size: 10px; color: #5e6b81; letter-spacing: 0.08em; text-transform: uppercase; }
 .sm-stat .v { font: 700 16px "JetBrains Mono", monospace; margin-top: 6px; }
-.sm-list { display: flex; flex-direction: column; gap: 6px; margin-top: auto; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.08); }
-.sm-list .li { display: grid; grid-template-columns: 14px 1fr auto auto; align-items: center; gap: 12px;
-  padding: 10px 12px; border-radius: 10px; cursor: pointer; transition: background 0.15s; }
+.sm-list { display: flex; flex-direction: column; gap: 2px; margin-top: auto; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.08); }
+.sm-list .lh { display: grid; grid-template-columns: 12px 58px 1fr 46px 64px; align-items: center; gap: 10px;
+  padding: 4px 12px 8px; font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #5e6b81; }
+.sm-list .lh .r { text-align: right; }
+.sm-list .li { display: grid; grid-template-columns: 12px 58px 1fr 46px 64px; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: 10px; cursor: pointer; transition: background 0.15s; }
 .sm-list .li:hover { background: rgba(255,255,255,0.05); }
 .sm-list .li.active { background: rgba(255,255,255,0.08); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.14); }
 .sm-list .li i { width: 10px; height: 10px; border-radius: 50%; }
-.sm-list .li .nm { font-size: 13px; font-weight: 600; }
-.sm-list .li .pc { font: 700 13px "JetBrains Mono", monospace; }
-.sm-list .li .dr { font-size: 10.5px; color: #5e6b81; }
+.sm-list .li .nm { font-size: 13px; font-weight: 700; white-space: nowrap; }
+.sm-list .li .dr { font-size: 11px; color: #8a98b0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sm-list .li .pc { font: 700 13px "JetBrains Mono", monospace; text-align: right; }
+.sm-list .li .st { font-size: 9.5px; font-weight: 800; letter-spacing: 0.06em; text-align: right; }
 `;
 
 const C = {
@@ -319,9 +323,10 @@ function StadiumScene({ onGateClick, selectedId }) {
       {SECTORS.map((g) => {
         const ex = CX + RO * A * Math.cos(g.c * D2R), ey = CY + RO * B * Math.sin(g.c * D2R);
         const bx = CX + 1.16 * AS * Math.cos(g.c * D2R), by = CY + 1.12 * BS * Math.sin(g.c * D2R);
-        const w = 150, h = 52;
+        const w = 154, h = 54;
         const padX = 13;
-        const divX = bx + w / 2 - 52;   // vertical divider: left = name column, right = % column
+        const colR = 50;                // fixed width of the right (% / status) column
+        const divX = bx + w / 2 - colR; // vertical divider: left = name column, right = % column
         const st = statusOf(g.pct);
         return (
           <g key={g.id} style={interactive ? { cursor: 'pointer' } : undefined}
@@ -333,15 +338,15 @@ function StadiumScene({ onGateClick, selectedId }) {
             <line x1={divX} y1={by - h / 2 + 8} x2={divX} y2={by + h / 2 - 8}
               stroke={g.color} strokeWidth="1" opacity="0.3" />
             {/* port name + direction (left column) */}
-            <text x={bx - w / 2 + padX} y={by - 9} fill="#fff" fontSize="16" fontWeight="800"
+            <text x={bx - w / 2 + padX} y={by - 8} fill="#fff" fontSize="16" fontWeight="800"
               fontFamily='"JetBrains Mono", monospace'>{`PORTE ${g.n}`}</text>
-            <text x={bx - w / 2 + padX} y={by + 8} fill={g.color} fontSize="10.5" fontWeight="800"
-              letterSpacing="0.04em" fontFamily='var(--sans, sans-serif)'>{g.gate.toUpperCase()}</text>
+            <text x={bx - w / 2 + padX} y={by + 10} fill={g.color} fontSize="10" fontWeight="800"
+              letterSpacing="0.03em" fontFamily='var(--sans, sans-serif)'>{g.gate.toUpperCase()}</text>
             {/* percentage + status (right column) */}
-            <text x={bx + w / 2 - padX} y={by - 4} textAnchor="end" fill={g.color} fontSize="20"
+            <text x={bx + w / 2 - padX} y={by - 5} textAnchor="end" fill={g.color} fontSize="20"
               fontWeight="800" fontFamily='"JetBrains Mono", monospace'>{g.pct}%</text>
-            <text x={bx + w / 2 - padX} y={by + 12} textAnchor="end" fill="rgba(255,255,255,0.6)"
-              fontSize="8" fontWeight="800" letterSpacing="0.08em">{st.label}</text>
+            <text x={bx + w / 2 - padX} y={by + 11} textAnchor="end" fill="rgba(255,255,255,0.6)"
+              fontSize="8" fontWeight="800" letterSpacing="0.06em">{st.label}</text>
           </g>
         );
       })}
@@ -413,14 +418,22 @@ export default function StadiumMap() {
               <div className="sub">Live sector telemetry · click a gate</div>
               <GateDetail s={sel} />
               <div className="sm-list">
+                <div className="lh">
+                  <span />
+                  <span>Porte</span>
+                  <span>Secteur</span>
+                  <span className="r">Occ.</span>
+                  <span className="r">Statut</span>
+                </div>
                 {SECTORS.map((s) => {
                   const st = statusOf(s.pct);
                   return (
                     <div key={s.id} className={`li ${s.id === selId ? 'active' : ''}`} onClick={() => setSelId(s.id)}>
                       <i style={{ background: st.color, boxShadow: `0 0 7px ${st.color}` }} />
-                      <span className="nm">Porte {s.n}<span className="dr"> · {s.gate}</span></span>
+                      <span className="nm">Porte {s.n}</span>
+                      <span className="dr">{s.gate}</span>
                       <span className="pc" style={{ color: st.color }}>{s.pct}%</span>
-                      <span className="dr">{st.label}</span>
+                      <span className="st" style={{ color: st.color }}>{st.label}</span>
                     </div>
                   );
                 })}

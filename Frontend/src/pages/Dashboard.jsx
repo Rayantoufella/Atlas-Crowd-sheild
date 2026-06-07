@@ -589,24 +589,6 @@ export default function Dashboard() {
               </div>
 
               <div className="glass card">
-                <div className="card-head"><span className="label">Social Impact · Active</span></div>
-                <div className="social">
-                  <div className="si green">
-                    <svg viewBox="0 0 20 20" fill="none"><circle cx="7" cy="6" r="2.6" stroke="#1FD17B" strokeWidth="1.5" /><circle cx="14" cy="7" r="2.1" stroke="#1FD17B" strokeWidth="1.5" /><path d="M3 17c0-3 2-4.5 4-4.5s4 1.5 4 4.5M11.5 17c0-2.4 1.6-3.8 3.2-3.8s3.3 1.4 3.3 3.8" stroke="#1FD17B" strokeWidth="1.5" strokeLinecap="round" /></svg>
-                    <div><div className="si-name">Family Zones</div><div className="si-stat">8 zones · clear</div></div>
-                  </div>
-                  <div className="si blue">
-                    <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="3.4" stroke="#3B9EFF" strokeWidth="1.5" /><circle cx="10" cy="10" r="7.5" stroke="#3B9EFF" strokeWidth="1.5" strokeDasharray="3 3" /></svg>
-                    <div><div className="si-name">PMR Routes</div><div className="si-stat">14 routes open</div></div>
-                  </div>
-                  <div className="si purple">
-                    <svg viewBox="0 0 20 20" fill="none"><path d="M10 2 L17 5 V11 C17 15 14 17.5 10 18.5 C6 17.5 3 15 3 11 V5 Z" stroke="#A66BFF" strokeWidth="1.5" strokeLinejoin="round" /></svg>
-                    <div><div className="si-name">Anti-Harassment</div><div className="si-stat">Patrol active</div></div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="glass card">
                 <div className="card-head"><span className="label">Field Agents · By Sector</span></div>
                 <div className="agent-row">
                   <span className="an">Nord</span>
@@ -631,16 +613,6 @@ export default function Dashboard() {
               </div>
             </section>
           </main>
-
-          {/* FOOTER */}
-          <footer className="glass">
-            <span className="tagline">"Securing the future of Moroccan football."</span>
-            <div className="pills">
-              <span className="pill green"><i></i>AI Active</span>
-              <span className="pill green"><i></i>WebSocket Connected</span>
-              <span className="pill orange"><i></i>Cameras 47/48</span>
-            </div>
-          </footer>
         </div>
       </div>
 
